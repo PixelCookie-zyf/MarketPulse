@@ -50,6 +50,7 @@ targets:
     settings:
       base:
         ALWAYS_SEARCH_USER_PATHS: NO
+        PRODUCT_NAME: MarketPulseTests
         PRODUCT_BUNDLE_IDENTIFIER: dev.marketpulse.MarketPulseTests
         INFOPLIST_FILE: MarketPulseTests/Info.plist
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
