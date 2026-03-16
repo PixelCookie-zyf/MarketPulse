@@ -16,8 +16,10 @@ struct IndexRowView: View {
 
             Spacer()
 
-            SparklineView(data: item.sparkline, isUp: item.isUp)
-                .frame(width: 84)
+            if !item.sparkline.isEmpty {
+                SparklineView(data: item.sparkline, isUp: item.isUp)
+                    .frame(width: 84)
+            }
 
             VStack(alignment: .trailing, spacing: 3) {
                 Text(item.value, format: .number.precision(.fractionLength(2)))

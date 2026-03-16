@@ -6,7 +6,7 @@ import akshare as ak
 
 from app.cache import cache_set
 from app.config import settings
-from app.fetchers.base import to_float
+from app.fetchers.base import build_sparkline, to_float
 
 CN_INDEX_CODES = ("sh000001", "sh000300", "sz399001", "sz399006", "sh000688")
 
@@ -48,7 +48,12 @@ class AKShareFetcher:
         try:
             frame = await asyncio.to_thread(ak.stock_zh_index_spot_sina)
             rows = frame[frame["代码"].isin(CN_INDEX_CODES)].to_dict(orient="records")
-            items = [normalize_index_row(row) for row in rows]
+            sparkline_map = await self._fetch_cn_sparkline_map()
+            items = []
+            for row in rows:
+                item = normalize_index_row(row)
+                item["sparkline"] = sparkline_map.get(item["symbol"], [])
+                items.append(item)
             await cache_set("indices:cn", items, ttl=settings.cache_ttl_index)
             return items
         except Exception:
@@ -79,17 +84,34 @@ class AKShareFetcher:
 
     async def fetch_cn_sectors(self) -> list[dict]:
         try:
-            frame = await asyncio.to_thread(ak.stock_board_industry_name_em)
-            items = [normalize_sector_row(row) for row in frame.to_dict(orient="records")]
+            frame = await asyncio.to_thread(ak.stock_board_industry_summary_ths)
+            items = [normalize_ths_sector_row(row) for row in frame.to_dict(orient="records")]
             items.sort(key=lambda item: item["change_pct"], reverse=True)
             await cache_set("sectors:cn", items, ttl=settings.cache_ttl_sector)
             return items
         except Exception:
             try:
-                frame = await asyncio.to_thread(ak.stock_board_industry_summary_ths)
-                items = [normalize_ths_sector_row(row) for row in frame.to_dict(orient="records")]
+                frame = await asyncio.to_thread(ak.stock_board_industry_name_em)
+                items = [normalize_sector_row(row) for row in frame.to_dict(orient="records")]
                 items.sort(key=lambda item: item["change_pct"], reverse=True)
                 await cache_set("sectors:cn", items, ttl=settings.cache_ttl_sector)
                 return items
             except Exception:
                 return []
+
+    async def _fetch_cn_sparkline_map(self) -> dict[str, list[float]]:
+        results: dict[str, list[float]] = {}
+        tasks = [asyncio.to_thread(self._fetch_cn_history, code) for code in CN_INDEX_CODES]
+        histories = await asyncio.gather(*tasks, return_exceptions=True)
+        for code, history in zip(CN_INDEX_CODES, histories):
+            if isinstance(history, list) and history:
+                results[code] = history
+        return results
+
+    def _fetch_cn_history(self, symbol: str) -> list[float]:
+        try:
+            frame = ak.stock_zh_index_daily(symbol=symbol)
+            close_column = "close" if "close" in frame.columns else "收盘"
+            return build_sparkline(frame[close_column].tolist(), limit=7)
+        except Exception:
+            return []

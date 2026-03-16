@@ -29,8 +29,10 @@ struct IndicesView: View {
 
                                             Spacer()
 
-                                            SparklineView(data: item.sparkline, isUp: item.isUp)
-                                                .frame(width: 100, height: 48)
+                                            if !item.sparkline.isEmpty {
+                                                SparklineView(data: item.sparkline, isUp: item.isUp)
+                                                    .frame(width: 100, height: 48)
+                                            }
                                         }
                                     }
                                 }

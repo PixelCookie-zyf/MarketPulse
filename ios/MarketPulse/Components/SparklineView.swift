@@ -6,11 +6,7 @@ struct SparklineView: View {
     let isUp: Bool
 
     var body: some View {
-        if data.isEmpty {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(AppTheme.Colors.background.opacity(0.6))
-                .frame(height: 36)
-        } else {
+        if !data.isEmpty {
             Chart(Array(data.enumerated()), id: \.offset) { index, value in
                 AreaMark(
                     x: .value("Index", index),

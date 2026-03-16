@@ -1,4 +1,5 @@
 from app.fetchers.akshare_fetcher import normalize_index_row, normalize_sector_row, normalize_ths_sector_row
+from app.fetchers.base import build_sparkline
 from app.fetchers.alphavantage_fetcher import (
     AVCommoditySpec,
     AVQuoteSpec,
@@ -141,6 +142,10 @@ def test_normalize_ths_sector_row():
         "turnover": 12500000000.0,
         "leading_stock": "中芯国际",
     }
+
+
+def test_build_sparkline_uses_recent_numeric_values():
+    assert build_sparkline([1, 2, "3.5", None, 4, 5, 6], limit=4) == [3.5, 4.0, 5.0, 6.0]
 
 
 def test_scheduler_job_specs_reflect_free_tier_limits():
