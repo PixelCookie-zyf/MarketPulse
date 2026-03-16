@@ -7,6 +7,7 @@ venv/
 
 # iOS / Xcode
 *.xcuserdata
+xcuserdata/
 DerivedData/
 build/
 *.ipa

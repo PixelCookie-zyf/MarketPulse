@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.cache import cache_get
 from app.fetchers.base import default_index_groups
+from app import scheduler
 
 router = APIRouter(prefix="/api/v1", tags=["overview"])
 
@@ -15,10 +16,19 @@ def _empty_groups() -> dict[str, list]:
 @router.get("/overview")
 async def get_overview() -> dict:
     commodities = await cache_get("commodities:all")
+    groups = await cache_get("indices:groups")
+    sectors = await cache_get("sectors:cn")
+
+    has_indices = bool(groups) and any(groups.get(key) for key in _empty_groups())
+    if not commodities and not has_indices and not sectors:
+        await scheduler.ensure_market_data(include={"commodities", "indices", "sectors"})
+        commodities = await cache_get("commodities:all")
+        groups = await cache_get("indices:groups")
+        sectors = await cache_get("sectors:cn")
+
     if commodities is None:
         commodities = (await cache_get("commodities:metals") or []) + (await cache_get("commodities:av") or [])
 
-    groups = await cache_get("indices:groups")
     if groups is None:
         groups = _empty_groups()
         for key in groups:
@@ -28,5 +38,5 @@ async def get_overview() -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "commodities": commodities,
         "indices": groups,
-        "sectors": await cache_get("sectors:cn") or [],
+        "sectors": sectors or [],
     }

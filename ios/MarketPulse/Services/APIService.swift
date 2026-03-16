@@ -1,6 +1,6 @@
 import Foundation
 
-protocol MarketDataServicing {
+protocol MarketDataServicing: Sendable {
     func fetchOverview() async throws -> OverviewResponse
 }
 
@@ -49,9 +49,9 @@ actor APIService: MarketDataServicing {
 private extension APIService {
     static var defaultBaseURL: URL {
         #if DEBUG
-        return URL(string: "http://127.0.0.1:8000/api/v1")!
+        return URL(string: "https://marketpulse-t9jx.onrender.com/api/v1")!
         #else
-        return URL(string: "https://your-backend.railway.app/api/v1")!
+        return URL(string: "https://marketpulse-t9jx.onrender.com/api/v1")!
         #endif
     }
 }

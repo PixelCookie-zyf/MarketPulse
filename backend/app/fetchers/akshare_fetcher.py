@@ -34,6 +34,15 @@ def normalize_sector_row(row: dict) -> dict:
     }
 
 
+def normalize_ths_sector_row(row: dict) -> dict:
+    return {
+        "name": str(row.get("板块", "")),
+        "change_pct": round(to_float(row.get("涨跌幅")), 4),
+        "turnover": to_float(row.get("总成交额")),
+        "leading_stock": str(row.get("领涨股", "") or ""),
+    }
+
+
 class AKShareFetcher:
     async def fetch_cn_indices(self) -> list[dict]:
         try:
@@ -76,4 +85,11 @@ class AKShareFetcher:
             await cache_set("sectors:cn", items, ttl=settings.cache_ttl_sector)
             return items
         except Exception:
-            return []
+            try:
+                frame = await asyncio.to_thread(ak.stock_board_industry_summary_ths)
+                items = [normalize_ths_sector_row(row) for row in frame.to_dict(orient="records")]
+                items.sort(key=lambda item: item["change_pct"], reverse=True)
+                await cache_set("sectors:cn", items, ttl=settings.cache_ttl_sector)
+                return items
+            except Exception:
+                return []

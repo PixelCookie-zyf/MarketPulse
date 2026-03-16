@@ -11,6 +11,7 @@ from app.fetchers.base import default_index_groups
 from app.fetchers.goldapi_fetcher import GoldAPIFetcher
 
 _scheduler: AsyncIOScheduler | None = None
+_refresh_lock = asyncio.Lock()
 
 
 def build_job_specs() -> list[dict]:
@@ -62,6 +63,32 @@ async def refresh_alpha_commodities() -> list[dict]:
     commodities = await fetcher.fetch_commodities()
     await _refresh_combined_commodities(av=commodities)
     return commodities
+
+
+async def ensure_market_data(*, include: set[str] | None = None) -> None:
+    requested = include or {"commodities", "indices", "sectors"}
+
+    async with _refresh_lock:
+        jobs: list = []
+
+        if "commodities" in requested:
+            commodities = await cache_get("commodities:all")
+            if not commodities:
+                jobs.extend((refresh_gold_metals(), refresh_alpha_commodities()))
+
+        if "indices" in requested:
+            groups = await cache_get("indices:groups")
+            has_indices = bool(groups) and any(groups.get(key) for key in default_index_groups())
+            if not has_indices:
+                jobs.extend((refresh_cn_indices(), refresh_alpha_indices()))
+
+        if "sectors" in requested:
+            sectors = await cache_get("sectors:cn")
+            if not sectors:
+                jobs.append(refresh_cn_sectors())
+
+        if jobs:
+            await asyncio.gather(*jobs)
 
 
 def start_scheduler() -> None:

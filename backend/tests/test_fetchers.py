@@ -1,4 +1,4 @@
-from app.fetchers.akshare_fetcher import normalize_index_row, normalize_sector_row
+from app.fetchers.akshare_fetcher import normalize_index_row, normalize_sector_row, normalize_ths_sector_row
 from app.fetchers.alphavantage_fetcher import (
     AVCommoditySpec,
     AVQuoteSpec,
@@ -123,6 +123,24 @@ def test_normalize_akshare_rows():
     assert index["volume"] == 123456789.0
     assert sector["leading_stock"] == "中芯国际"
     assert sector["change_pct"] == 3.25
+
+
+def test_normalize_ths_sector_row():
+    sector = normalize_ths_sector_row(
+        {
+            "板块": "半导体",
+            "涨跌幅": 3.25,
+            "总成交额": 12500000000,
+            "领涨股": "中芯国际",
+        }
+    )
+
+    assert sector == {
+        "name": "半导体",
+        "change_pct": 3.25,
+        "turnover": 12500000000.0,
+        "leading_stock": "中芯国际",
+    }
 
 
 def test_scheduler_job_specs_reflect_free_tier_limits():

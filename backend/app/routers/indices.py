@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.cache import cache_get
 from app.fetchers.base import default_index_groups
+from app import scheduler
 
 router = APIRouter(prefix="/api/v1", tags=["indices"])
 
@@ -31,6 +32,11 @@ async def get_cn_indices() -> dict:
 
 
 async def _load_groups() -> dict[str, list]:
+    groups = await cache_get("indices:groups")
+    if groups is not None and any(groups.get(key) for key in _empty_groups()):
+        return groups
+
+    await scheduler.ensure_market_data(include={"indices"})
     groups = await cache_get("indices:groups")
     if groups is not None:
         return groups
