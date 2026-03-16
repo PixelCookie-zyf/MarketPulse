@@ -1,0 +1,61 @@
+from httpx import ASGITransport, AsyncClient
+
+from app.cache import cache_set, close_cache, init_cache
+from app.main import app
+
+
+async def test_health_endpoint():
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+async def test_overview_endpoint_aggregates_cached_payloads():
+    await init_cache()
+    await cache_set(
+        "commodities:all",
+        [
+            {
+                "symbol": "XAU",
+                "name": "黄金",
+                "name_en": "Gold",
+                "price": 2650.3,
+                "change": 12.5,
+                "change_pct": 0.47,
+                "high": 2655.0,
+                "low": 2635.0,
+                "unit": "USD/oz",
+            }
+        ],
+    )
+    await cache_set(
+        "indices:groups",
+        {
+            "us": [{"symbol": "IXIC", "name": "纳斯达克", "value": 18250.0, "change": 125.3, "change_pct": 0.69, "sparkline": []}],
+            "jp": [],
+            "kr": [],
+            "hk": [],
+            "cn": [],
+        },
+    )
+    await cache_set(
+        "sectors:cn",
+        [{"name": "半导体", "change_pct": 3.25, "turnover": 12500000000, "leading_stock": "中芯国际"}],
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/api/v1/overview")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["commodities"][0]["symbol"] == "XAU"
+    assert body["indices"]["us"][0]["symbol"] == "IXIC"
+    assert body["sectors"][0]["name"] == "半导体"
+    assert "timestamp" in body
+
+    await close_cache()

@@ -1,0 +1,283 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		6CA041067B000F8601336889 /* MarketPulseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6966DDC945EB4C3030A2A17 /* MarketPulseTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		539AC2A3C7814A2570DB3378 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AD6AFB814847CFCD7D0B43C7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6D6DA6A3DCF736066845A9BE;
+			remoteInfo = MarketPulse;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		01B93E0CA1C5874664F02A0C /* MarketPulseTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MarketPulseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		02235B03437A216282A549B3 /* MarketPulse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MarketPulse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8847BE31B7CAC8FE4AA81435 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D1331A36B461B1904EFB03D8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F6966DDC945EB4C3030A2A17 /* MarketPulseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketPulseTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		3E53C2B1153F5772A29519EB /* MarketPulseTests */ = {
+			isa = PBXGroup;
+			children = (
+				8847BE31B7CAC8FE4AA81435 /* Info.plist */,
+				F6966DDC945EB4C3030A2A17 /* MarketPulseTests.swift */,
+			);
+			path = MarketPulseTests;
+			sourceTree = "<group>";
+		};
+		7E380E6D0135972CA00ACE55 = {
+			isa = PBXGroup;
+			children = (
+				BCED51296D035AB50DE7396D /* MarketPulse */,
+				3E53C2B1153F5772A29519EB /* MarketPulseTests */,
+				EBD497B1A5B801365C3C860B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BCED51296D035AB50DE7396D /* MarketPulse */ = {
+			isa = PBXGroup;
+			children = (
+				D1331A36B461B1904EFB03D8 /* Info.plist */,
+			);
+			path = MarketPulse;
+			sourceTree = "<group>";
+		};
+		EBD497B1A5B801365C3C860B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				02235B03437A216282A549B3 /* MarketPulse.app */,
+				01B93E0CA1C5874664F02A0C /* MarketPulseTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		"TEMP_D9AF7F97-A99C-46F3-AF78-82FF57E4BA68" /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0E26FB566DBE4EF0FED8FAA4 /* MarketPulseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800C4194320A4608F11A55B3 /* Build configuration list for PBXNativeTarget "MarketPulseTests" */;
+			buildPhases = (
+				3C6F9E258BFEEB91E634D50C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				6F943675913BBAD63E6955C9 /* PBXTargetDependency */,
+			);
+			name = MarketPulseTests;
+			packageProductDependencies = (
+			);
+			productName = MarketPulseTests;
+			productReference = 01B93E0CA1C5874664F02A0C /* MarketPulseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		6D6DA6A3DCF736066845A9BE /* MarketPulse */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DFB3C73970613F8B94307D01 /* Build configuration list for PBXNativeTarget "MarketPulse" */;
+			buildPhases = (
+				838732C58F837B36D7EAC86C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MarketPulse;
+			packageProductDependencies = (
+			);
+			productName = MarketPulse;
+			productReference = 02235B03437A216282A549B3 /* MarketPulse.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AD6AFB814847CFCD7D0B43C7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0E26FB566DBE4EF0FED8FAA4 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					6D6DA6A3DCF736066845A9BE = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 4139B6ED6B94A7B344DBE25A /* Build configuration list for PBXProject "MarketPulse" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 7E380E6D0135972CA00ACE55;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = EBD497B1A5B801365C3C860B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6D6DA6A3DCF736066845A9BE /* MarketPulse */,
+				0E26FB566DBE4EF0FED8FAA4 /* MarketPulseTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3C6F9E258BFEEB91E634D50C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6CA041067B000F8601336889 /* MarketPulseTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		838732C58F837B36D7EAC86C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		6F943675913BBAD63E6955C9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6D6DA6A3DCF736066845A9BE /* MarketPulse */;
+			targetProxy = 539AC2A3C7814A2570DB3378 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0C3BF64B6E2E743CCB147768 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = MarketPulseTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.marketpulse.MarketPulseTests;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarketPulse.app/MarketPulse";
+			};
+			name = Debug;
+		};
+		521F6ED4E20C379C9A05240E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		612426C271EEB684918F643B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = MarketPulseTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.marketpulse.MarketPulseTests;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MarketPulse.app/MarketPulse";
+			};
+			name = Release;
+		};
+		6FE846E4B1F6C7CEDB9235D5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A206B24049B00E85B51E5379 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = MarketPulse/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.marketpulse.MarketPulse;
+				PRODUCT_NAME = MarketPulse;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BA31D2362FA1148F41F79C3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = MarketPulse/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.marketpulse.MarketPulse;
+				PRODUCT_NAME = MarketPulse;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4139B6ED6B94A7B344DBE25A /* Build configuration list for PBXProject "MarketPulse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FE846E4B1F6C7CEDB9235D5 /* Debug */,
+				521F6ED4E20C379C9A05240E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		800C4194320A4608F11A55B3 /* Build configuration list for PBXNativeTarget "MarketPulseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0C3BF64B6E2E743CCB147768 /* Debug */,
+				612426C271EEB684918F643B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DFB3C73970613F8B94307D01 /* Build configuration list for PBXNativeTarget "MarketPulse" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A206B24049B00E85B51E5379 /* Debug */,
+				BA31D2362FA1148F41F79C3D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AD6AFB814847CFCD7D0B43C7 /* Project object */;
+}
