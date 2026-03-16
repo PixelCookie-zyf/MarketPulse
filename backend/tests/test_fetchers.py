@@ -10,13 +10,15 @@ from app.fetchers.alphavantage_fetcher import (
 from app.fetchers.goldapi_fetcher import GoldSpec, extract_goldapi_item
 from app.fetchers.stooq_fetcher import (
     STQ_COMMODITY_SPECS,
+    STQ_HK_INDEX_SPECS,
     STQ_US_INDEX_SPECS,
     StooqCommoditySpec,
     StooqIndexSpec,
     extract_stooq_commodity_item,
+    extract_stooq_hk_index_item,
     extract_stooq_index_item,
 )
-from app.scheduler import build_job_specs
+from app.scheduler import build_job_specs, refresh_cn_indices
 
 
 def test_extract_global_quote_item_maps_etf_quote_to_index_shape():
@@ -176,6 +178,26 @@ def test_extract_stooq_index_item_maps_quote_and_sparkline():
     }
 
 
+def test_extract_stooq_hk_index_item_maps_quote_and_sparkline():
+    result = extract_stooq_hk_index_item(
+        "2026-03-13,18588.63,18620.50,18388.10,18456.23,0",
+        sparkline=[18720.0, 18690.0, 18580.0, 18456.23],
+    )
+
+    assert STQ_HK_INDEX_SPECS == (StooqIndexSpec(symbol="^hsi", market_symbol="HSI", name="恒生指数"),)
+    assert result == {
+        "symbol": "HSI",
+        "name": "恒生指数",
+        "value": 18456.23,
+        "change": -132.4,
+        "change_pct": -0.71,
+        "high": 18620.5,
+        "low": 18388.1,
+        "volume": 0.0,
+        "sparkline": [18720.0, 18690.0, 18580.0, 18456.23],
+    }
+
+
 def test_extract_stooq_commodity_item_maps_quote_fields():
     result = extract_stooq_commodity_item(
         "2026-03-16,97.84,99.26,93.4,94.28,",
@@ -218,3 +240,27 @@ def test_scheduler_job_specs_reflect_free_tier_limits():
     assert specs["gold_metals"]["minutes"] == 15
     assert specs["global_indices"]["hours"] == 1
     assert specs["stooq_commodities"]["hours"] == 1
+
+
+async def test_refresh_cn_indices_uses_stooq_hk_source(monkeypatch):
+    async def fake_fetch_cn_indices(self):
+        return [{"symbol": "sh000001", "name": "上证指数"}]
+
+    async def fake_fetch_hk_indices(self):
+        return [{"symbol": "HSI", "name": "恒生指数"}]
+
+    async def fake_load_index_groups():
+        return {"us": [], "jp": [], "kr": [], "hk": [], "cn": []}
+
+    async def fake_cache_set(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.fetchers.akshare_fetcher.AKShareFetcher.fetch_cn_indices", fake_fetch_cn_indices)
+    monkeypatch.setattr("app.fetchers.stooq_fetcher.StooqFetcher.fetch_hk_indices", fake_fetch_hk_indices)
+    monkeypatch.setattr("app.scheduler.cache_set", fake_cache_set)
+    monkeypatch.setattr("app.scheduler._load_index_groups", fake_load_index_groups)
+
+    groups = await refresh_cn_indices()
+
+    assert groups["cn"] == [{"symbol": "sh000001", "name": "上证指数"}]
+    assert groups["hk"] == [{"symbol": "HSI", "name": "恒生指数"}]

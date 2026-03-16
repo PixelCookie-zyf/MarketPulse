@@ -59,29 +59,6 @@ class AKShareFetcher:
         except Exception:
             return []
 
-    async def fetch_hk_index(self) -> list[dict]:
-        try:
-            frame = await asyncio.to_thread(ak.index_global_spot_em)
-            rows = frame[frame["名称"].astype(str).str.contains("恒生", na=False)].to_dict(orient="records")
-            items = [
-                {
-                    "symbol": str(row.get("代码") or row.get("名称") or "HSI"),
-                    "name": "恒生指数",
-                    "value": round(to_float(row.get("最新价")), 4),
-                    "change": round(to_float(row.get("涨跌额")), 4),
-                    "change_pct": round(to_float(row.get("涨跌幅")), 4),
-                    "high": round(to_float(row.get("最高")), 4),
-                    "low": round(to_float(row.get("最低")), 4),
-                    "volume": to_float(row.get("成交量")),
-                    "sparkline": [],
-                }
-                for row in rows[:1]
-            ]
-            await cache_set("indices:hk", items, ttl=settings.cache_ttl_index)
-            return items
-        except Exception:
-            return []
-
     async def fetch_cn_sectors(self) -> list[dict]:
         try:
             frame = await asyncio.to_thread(ak.stock_board_industry_summary_ths)

@@ -38,6 +38,10 @@ STQ_US_INDEX_SPECS = (
     StooqIndexSpec(symbol="^dji", market_symbol="DJI", name="道琼斯"),
 )
 
+STQ_HK_INDEX_SPECS = (
+    StooqIndexSpec(symbol="^hsi", market_symbol="HSI", name="恒生指数"),
+)
+
 STQ_COMMODITY_SPECS = (
     StooqCommoditySpec(symbol="cl.f", market_symbol="WTI", name="原油", name_en="Crude Oil", unit="USD/bbl"),
     StooqCommoditySpec(symbol="cb.f", market_symbol="BRENT", name="布伦特原油", name_en="Brent Oil", unit="USD/bbl"),
@@ -75,6 +79,16 @@ def extract_stooq_index_item(body: str, spec: StooqIndexSpec, *, sparkline: list
         "volume": volume,
         "sparkline": sparkline,
     }
+
+
+def extract_stooq_hk_index_item(body: str, *, sparkline: list[float]) -> dict | None:
+    return _extract_stooq_index_item(
+        body,
+        STQ_HK_INDEX_SPECS[0],
+        sparkline=sparkline,
+        use_open_for_change=True,
+        change_pct_digits=2,
+    )
 
 
 def extract_stooq_commodity_item(body: str, spec: StooqCommoditySpec) -> dict | None:
@@ -115,6 +129,15 @@ class StooqFetcher:
         await cache_set("indices:us", items, ttl=settings.cache_ttl_index)
         return items
 
+    async def fetch_hk_indices(self) -> list[dict]:
+        async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
+            tasks = [self._fetch_hk_index_item(client, spec) for spec in STQ_HK_INDEX_SPECS]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        items = [item for item in results if isinstance(item, dict)]
+        await cache_set("indices:hk", items, ttl=settings.cache_ttl_index)
+        return items
+
     async def fetch_commodities(self) -> list[dict]:
         async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
             results = []
@@ -129,6 +152,18 @@ class StooqFetcher:
         return items
 
     async def _fetch_index_item(self, client: httpx.AsyncClient, spec: StooqIndexSpec) -> dict | None:
+        return await self._fetch_history_index_item(client, spec, extractor=extract_stooq_index_item)
+
+    async def _fetch_hk_index_item(self, client: httpx.AsyncClient, spec: StooqIndexSpec) -> dict | None:
+        return await self._fetch_history_index_item(client, spec, extractor=extract_stooq_hk_index_item)
+
+    async def _fetch_history_index_item(
+        self,
+        client: httpx.AsyncClient,
+        spec: StooqIndexSpec,
+        *,
+        extractor,
+    ) -> dict | None:
         response = await self._get_with_retry(client, HISTORY_URL, {"s": spec.symbol, "i": "d"})
         lines = [line.strip() for line in response.text.splitlines() if line.strip()]
         if len(lines) < 3:
@@ -152,7 +187,9 @@ class StooqFetcher:
                 latest.get("Volume", ""),
             ]
         )
-        return extract_stooq_index_item(body, spec, sparkline=sparkline)
+        if extractor is extract_stooq_hk_index_item:
+            return extractor(body, sparkline=sparkline)
+        return extractor(body, spec, sparkline=sparkline)
 
     async def _fetch_commodity_item(self, client: httpx.AsyncClient, spec: StooqCommoditySpec) -> dict | None:
         response = await self._get_with_retry(client, QUOTE_URL, {"s": spec.symbol, "i": "d"})
@@ -196,6 +233,39 @@ def _extract_quote_body(payload: str, expected_symbol: str) -> str | None:
     if "N/D" in body:
         return None
     return body
+
+
+def _extract_stooq_index_item(
+    body: str,
+    spec: StooqIndexSpec,
+    *,
+    sparkline: list[float],
+    use_open_for_change: bool = False,
+    change_pct_digits: int = 4,
+) -> dict | None:
+    parsed = _parse_quote_fields(body)
+    if parsed is None:
+        return None
+
+    current = round(to_float(parsed["close"]), 4)
+    previous = to_float(parsed["open"], default=current) if use_open_for_change else sparkline[-2] if len(sparkline) >= 2 else current
+    change = current - previous
+    change_pct = (change / previous * 100) if previous else 0.0
+    high = round(to_float(parsed["high"], default=current), 4)
+    low = round(to_float(parsed["low"], default=current), 4)
+    volume = to_float(parsed["volume"], default=0.0)
+
+    return {
+        "symbol": spec.market_symbol,
+        "name": spec.name,
+        "value": current,
+        "change": round(change, 4),
+        "change_pct": round(change_pct, change_pct_digits),
+        "high": high,
+        "low": low,
+        "volume": volume,
+        "sparkline": sparkline,
+    }
 
 
 def _parse_body_fields(body: str) -> list[str]:

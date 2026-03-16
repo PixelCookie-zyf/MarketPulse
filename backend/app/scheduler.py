@@ -26,8 +26,9 @@ def build_job_specs() -> list[dict]:
 
 
 async def refresh_cn_indices() -> dict[str, list]:
-    fetcher = AKShareFetcher()
-    cn, hk = await asyncio.gather(fetcher.fetch_cn_indices(), fetcher.fetch_hk_index())
+    akshare = AKShareFetcher()
+    stooq = StooqFetcher()
+    cn, hk = await asyncio.gather(akshare.fetch_cn_indices(), stooq.fetch_hk_indices())
     groups = await _load_index_groups()
     groups["cn"] = cn
     groups["hk"] = hk
