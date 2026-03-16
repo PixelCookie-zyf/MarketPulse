@@ -25,9 +25,16 @@ actor APIService: MarketDataServicing {
     private let session: URLSession
     private let decoder = JSONDecoder()
 
-    init(baseURL: URL = APIService.defaultBaseURL, session: URLSession = .shared) {
+    init(baseURL: URL = APIService.defaultBaseURL, session: URLSession? = nil) {
         self.baseURL = baseURL
-        self.session = session
+        if let session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.default
+            config.timeoutIntervalForRequest = 15
+            config.timeoutIntervalForResource = 30
+            self.session = URLSession(configuration: config)
+        }
     }
 
     func fetchOverview() async throws -> OverviewResponse {

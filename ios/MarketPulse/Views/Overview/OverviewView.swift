@@ -30,7 +30,8 @@ struct OverviewView: View {
     }
 
     private var statusHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            // Error message
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
@@ -39,15 +40,59 @@ struct OverviewView: View {
                     .padding(.vertical, 10)
                     .background(AppTheme.Colors.cardBackground)
                     .clipShape(Capsule())
-            } else if let lastUpdated = viewModel.lastUpdated {
-                Text("更新于 \(lastUpdated.formatted(date: .omitted, time: .shortened))")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.Colors.secondaryText)
             }
 
+            // Syncing banner — shown when loading with cached data visible
+            if viewModel.isSyncing && !viewModel.commodities.isEmpty {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(AppTheme.Colors.accent)
+                    Text("正在同步最新数据…")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                }
+            }
+
+            // Data timestamp
+            if let timestamp = viewModel.dataTimestamp {
+                HStack(spacing: 4) {
+                    Image(systemName: viewModel.isShowingCachedData ? "clock.arrow.circlepath" : "checkmark.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(viewModel.isShowingCachedData ? AppTheme.Colors.secondaryText : .green)
+                    Text(dataTimestampText(timestamp))
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.Colors.secondaryText)
+                }
+            }
+
+            // Full-screen spinner only when no data at all
             if viewModel.isLoading && viewModel.commodities.isEmpty {
                 ProgressView("同步市场数据中…")
                     .tint(AppTheme.Colors.accent)
+            }
+        }
+    }
+
+    private func dataTimestampText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+
+        if Calendar.current.isDateInToday(date) {
+            formatter.dateFormat = "HH:mm"
+            let timeStr = formatter.string(from: date)
+            if viewModel.isShowingCachedData {
+                return "数据更新时间 \(timeStr)（缓存）"
+            } else {
+                return "数据已同步 · \(timeStr)"
+            }
+        } else {
+            formatter.dateFormat = "MM-dd HH:mm"
+            let timeStr = formatter.string(from: date)
+            if viewModel.isShowingCachedData {
+                return "数据更新时间 \(timeStr)（缓存）"
+            } else {
+                return "数据已同步 · \(timeStr)"
             }
         }
     }

@@ -5,6 +5,7 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.cache import cache_get, cache_set
+from app.config import settings
 from app.fetchers.akshare_fetcher import AKShareFetcher
 from app.fetchers.alphavantage_fetcher import AlphaVantageFetcher
 from app.fetchers.base import default_index_groups
@@ -13,6 +14,12 @@ from app.fetchers.stooq_fetcher import StooqFetcher
 
 _scheduler: AsyncIOScheduler | None = None
 _refresh_lock = asyncio.Lock()
+
+# Cache TTLs — must be LONGER than the scheduler interval for the same data,
+# so the cache never expires between scheduled refreshes.
+_INDEX_GROUP_TTL = 7200       # 2 hours (global indices refresh every 1h)
+_COMMODITY_ALL_TTL = 7200     # 2 hours (stooq commodities refresh every 1h)
+
 COMBINED_COMMODITY_SYMBOLS = (
     "XAU",
     "XAG",
@@ -29,6 +36,17 @@ COMBINED_COMMODITY_SYMBOLS = (
 STABLE_COMMODITY_CACHE_KEY = "commodities:stooq"
 
 
+async def self_ping() -> None:
+    """Ping own /health endpoint to keep Render free tier from sleeping."""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.get("https://marketpulse-t9jx.onrender.com/health")
+    except Exception:
+        pass
+
+
 def build_job_specs() -> list[dict]:
     return [
         {"id": "cn_indices", "minutes": 1, "func": refresh_cn_indices},
@@ -36,6 +54,7 @@ def build_job_specs() -> list[dict]:
         {"id": "gold_metals", "minutes": 15, "func": refresh_gold_metals},
         {"id": "global_indices", "hours": 1, "func": refresh_global_indices},
         {"id": "stooq_commodities", "hours": 1, "func": refresh_stooq_commodities},
+        {"id": "self_ping", "minutes": 10, "func": self_ping},
     ]
 
 
@@ -46,7 +65,7 @@ async def refresh_cn_indices() -> dict[str, list]:
     groups = await _load_index_groups()
     groups["cn"] = cn
     groups["hk"] = hk
-    await cache_set("indices:groups", groups)
+    await cache_set("indices:groups", groups, ttl=_INDEX_GROUP_TTL)
     return groups
 
 
@@ -71,7 +90,7 @@ async def refresh_global_indices() -> dict[str, list]:
     groups["us"] = us
     groups["jp"] = jp
     groups["kr"] = kr
-    await cache_set("indices:groups", groups)
+    await cache_set("indices:groups", groups, ttl=_INDEX_GROUP_TTL)
     return groups
 
 
@@ -147,7 +166,7 @@ async def _refresh_combined_commodities(
 ) -> None:
     metal_items = metals if metals is not None else (await cache_get("commodities:metals") or [])
     stooq_items = stooq if stooq is not None else (await cache_get(STABLE_COMMODITY_CACHE_KEY) or [])
-    await cache_set("commodities:all", _merge_commodity_items(metal_items, stooq_items))
+    await cache_set("commodities:all", _merge_commodity_items(metal_items, stooq_items), ttl=_COMMODITY_ALL_TTL)
 
 
 async def load_combined_commodities() -> list[dict]:
@@ -159,7 +178,7 @@ async def load_combined_commodities() -> list[dict]:
     stooq_items = await cache_get(STABLE_COMMODITY_CACHE_KEY) or []
     combined = _merge_commodity_items(metal_items, stooq_items)
     if combined:
-        await cache_set("commodities:all", combined)
+        await cache_set("commodities:all", combined, ttl=_COMMODITY_ALL_TTL)
     return combined
 
 
