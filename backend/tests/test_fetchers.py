@@ -7,7 +7,7 @@ from app.fetchers.alphavantage_fetcher import (
     extract_global_quote_item,
     is_rate_limited_response,
 )
-from app.fetchers.goldapi_fetcher import GoldSpec, extract_goldapi_item
+from app.fetchers.goldapi_fetcher import GOLD_SPECS, GoldSpec, extract_goldapi_item
 from app.fetchers.stooq_fetcher import (
     STQ_COMMODITY_SPECS,
     STQ_HK_INDEX_SPECS,
@@ -18,7 +18,7 @@ from app.fetchers.stooq_fetcher import (
     extract_stooq_hk_index_item,
     extract_stooq_index_item,
 )
-from app.scheduler import build_job_specs, refresh_cn_indices
+from app.scheduler import _refresh_combined_commodities, build_job_specs, refresh_cn_indices
 
 
 def test_extract_global_quote_item_maps_etf_quote_to_index_shape():
@@ -219,7 +219,9 @@ def test_extract_stooq_commodity_item_maps_quote_fields():
 
 def test_stooq_specs_cover_expanded_dashboard_symbols():
     assert {spec.market_symbol for spec in STQ_US_INDEX_SPECS} == {"IXIC", "SPX", "DJI"}
-    assert {spec.market_symbol for spec in STQ_COMMODITY_SPECS} >= {
+    assert {spec.symbol for spec in GOLD_SPECS} | {spec.market_symbol for spec in STQ_COMMODITY_SPECS} == {
+        "XAU",
+        "XAG",
         "WTI",
         "BRENT",
         "NATGAS",
@@ -264,3 +266,34 @@ async def test_refresh_cn_indices_uses_stooq_hk_source(monkeypatch):
 
     assert groups["cn"] == [{"symbol": "sh000001", "name": "上证指数"}]
     assert groups["hk"] == [{"symbol": "HSI", "name": "恒生指数"}]
+
+
+async def test_refresh_combined_commodities_keeps_dashboard_order(monkeypatch):
+    cached = {}
+
+    async def fake_cache_set(key, data, ttl=60):
+        cached[key] = data
+
+    monkeypatch.setattr("app.scheduler.cache_set", fake_cache_set)
+
+    await _refresh_combined_commodities(
+        metals=[
+            {"symbol": "XAG", "name": "白银"},
+            {"symbol": "XAU", "name": "黄金"},
+        ],
+        stooq=[
+            {"symbol": "SUGAR", "name": "糖"},
+            {"symbol": "WTI", "name": "原油"},
+            {"symbol": "BRENT", "name": "布伦特原油"},
+            {"symbol": "COFFEE", "name": "咖啡"},
+        ],
+    )
+
+    assert [item["symbol"] for item in cached["commodities:all"]] == [
+        "XAU",
+        "XAG",
+        "WTI",
+        "BRENT",
+        "SUGAR",
+        "COFFEE",
+    ]

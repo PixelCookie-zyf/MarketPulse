@@ -129,3 +129,33 @@ async def test_overview_endpoint_populates_data_on_cache_miss(monkeypatch):
     assert called == 1
 
     await close_cache()
+
+
+async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order():
+    await close_cache()
+    await init_cache()
+    await cache_set(
+        "commodities:metals",
+        [
+            {"symbol": "XAG", "name": "白银"},
+            {"symbol": "XAU", "name": "黄金"},
+        ],
+    )
+    await cache_set(
+        "commodities:stooq",
+        [
+            {"symbol": "COFFEE", "name": "咖啡"},
+            {"symbol": "BRENT", "name": "布伦特原油"},
+            {"symbol": "WTI", "name": "原油"},
+        ],
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/api/v1/commodities")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert [item["symbol"] for item in body["data"]] == ["XAU", "XAG", "WTI", "BRENT", "COFFEE"]
+
+    await close_cache()

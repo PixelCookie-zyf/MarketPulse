@@ -15,19 +15,16 @@ def _empty_groups() -> dict[str, list]:
 
 @router.get("/overview")
 async def get_overview() -> dict:
-    commodities = await cache_get("commodities:all")
+    commodities = await scheduler.load_combined_commodities()
     groups = await cache_get("indices:groups")
     sectors = await cache_get("sectors:cn")
 
     has_indices = bool(groups) and any(groups.get(key) for key in _empty_groups())
     if not commodities and not has_indices and not sectors:
         await scheduler.ensure_market_data(include={"commodities", "indices", "sectors"})
-        commodities = await cache_get("commodities:all")
+        commodities = await scheduler.load_combined_commodities()
         groups = await cache_get("indices:groups")
         sectors = await cache_get("sectors:cn")
-
-    if commodities is None:
-        commodities = (await cache_get("commodities:metals") or []) + (await cache_get("commodities:stooq") or [])
 
     if groups is None:
         groups = _empty_groups()

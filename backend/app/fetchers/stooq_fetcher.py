@@ -192,7 +192,7 @@ class StooqFetcher:
         return extractor(body, spec, sparkline=sparkline)
 
     async def _fetch_commodity_item(self, client: httpx.AsyncClient, spec: StooqCommoditySpec) -> dict | None:
-        response = await self._get_with_retry(client, QUOTE_URL, {"s": spec.symbol, "i": "d"})
+        response = await self._get_with_retry(client, QUOTE_URL, {"s": spec.symbol, "i": "d"}, attempts=3)
         body = _extract_quote_body(response.text, spec.symbol)
         if body is None:
             return None

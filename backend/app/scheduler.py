@@ -13,6 +13,20 @@ from app.fetchers.stooq_fetcher import StooqFetcher
 
 _scheduler: AsyncIOScheduler | None = None
 _refresh_lock = asyncio.Lock()
+COMBINED_COMMODITY_SYMBOLS = (
+    "XAU",
+    "XAG",
+    "WTI",
+    "BRENT",
+    "NATGAS",
+    "COPPER",
+    "CORN",
+    "WHEAT",
+    "COTTON",
+    "SUGAR",
+    "COFFEE",
+)
+STABLE_COMMODITY_CACHE_KEY = "commodities:stooq"
 
 
 def build_job_specs() -> list[dict]:
@@ -132,5 +146,32 @@ async def _refresh_combined_commodities(
     stooq: list[dict] | None = None,
 ) -> None:
     metal_items = metals if metals is not None else (await cache_get("commodities:metals") or [])
-    stooq_items = stooq if stooq is not None else (await cache_get("commodities:stooq") or [])
-    await cache_set("commodities:all", metal_items + stooq_items)
+    stooq_items = stooq if stooq is not None else (await cache_get(STABLE_COMMODITY_CACHE_KEY) or [])
+    await cache_set("commodities:all", _merge_commodity_items(metal_items, stooq_items))
+
+
+async def load_combined_commodities() -> list[dict]:
+    combined = await cache_get("commodities:all")
+    if combined is not None:
+        return _sort_commodities(combined)
+
+    metal_items = await cache_get("commodities:metals") or []
+    stooq_items = await cache_get(STABLE_COMMODITY_CACHE_KEY) or []
+    combined = _merge_commodity_items(metal_items, stooq_items)
+    if combined:
+        await cache_set("commodities:all", combined)
+    return combined
+
+
+def _merge_commodity_items(metals: list[dict], stooq: list[dict]) -> list[dict]:
+    deduped: dict[str, dict] = {}
+    for item in [*metals, *stooq]:
+        symbol = item.get("symbol")
+        if symbol:
+            deduped[str(symbol)] = item
+    return _sort_commodities(list(deduped.values()))
+
+
+def _sort_commodities(items: list[dict]) -> list[dict]:
+    order = {symbol: index for index, symbol in enumerate(COMBINED_COMMODITY_SYMBOLS)}
+    return sorted(items, key=lambda item: (order.get(str(item.get("symbol")), len(order)), str(item.get("symbol", ""))))
