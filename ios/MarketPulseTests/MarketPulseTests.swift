@@ -2,6 +2,16 @@ import XCTest
 @testable import MarketPulse
 
 final class MarketPulseTests: XCTestCase {
+    func testNormalizeSparklineDataExpandsTightRangeWithPadding() {
+        let result = normalizeSparklineData([4124.194, 4096.602, 4123.138, 4133.433, 4129.103, 4095.449, 4084.786])
+
+        XCTAssertEqual(result.count, 7)
+        XCTAssertEqual(result.first, 0.7605, accuracy: 0.001)
+        XCTAssertEqual(result.last, 0.08, accuracy: 0.001)
+        XCTAssertGreaterThan(result.max() ?? 0, 0.9)
+        XCTAssertLessThan(result.min() ?? 1, 0.1)
+    }
+
     func testOverviewResponseDecodesSnakeCasePayload() throws {
         let data = Data(
             """
