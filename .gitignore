@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.env
+venv/
+.venv/
+
+# iOS / Xcode
+*.xcuserdata
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+
+# Project-local worktrees
+.worktrees/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
