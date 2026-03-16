@@ -42,6 +42,15 @@ app.include_router(sectors.router)
 app.include_router(overview.router)
 
 
+@app.get("/")
+async def root() -> dict:
+    return {
+        "name": "MarketPulse API",
+        "status": "ok",
+        "routes": ["/health", "/api/v1/overview"],
+    }
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}

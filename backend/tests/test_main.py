@@ -14,6 +14,20 @@ async def test_health_endpoint():
     assert response.json() == {"status": "ok"}
 
 
+async def test_root_endpoint_returns_service_metadata():
+    transport = ASGITransport(app=app)
+
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "name": "MarketPulse API",
+        "status": "ok",
+        "routes": ["/health", "/api/v1/overview"],
+    }
+
+
 async def test_overview_endpoint_aggregates_cached_payloads():
     await init_cache()
     await cache_set(
