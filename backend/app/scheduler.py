@@ -9,6 +9,7 @@ from app.fetchers.akshare_fetcher import AKShareFetcher
 from app.fetchers.alphavantage_fetcher import AlphaVantageFetcher
 from app.fetchers.base import default_index_groups
 from app.fetchers.goldapi_fetcher import GoldAPIFetcher
+from app.fetchers.stooq_fetcher import StooqFetcher
 
 _scheduler: AsyncIOScheduler | None = None
 _refresh_lock = asyncio.Lock()
@@ -19,8 +20,8 @@ def build_job_specs() -> list[dict]:
         {"id": "cn_indices", "minutes": 1, "func": refresh_cn_indices},
         {"id": "cn_sectors", "minutes": 3, "func": refresh_cn_sectors},
         {"id": "gold_metals", "minutes": 15, "func": refresh_gold_metals},
-        {"id": "alpha_indices", "hours": 12, "func": refresh_alpha_indices},
-        {"id": "alpha_commodities", "hours": 12, "func": refresh_alpha_commodities},
+        {"id": "global_indices", "hours": 1, "func": refresh_global_indices},
+        {"id": "stooq_commodities", "hours": 1, "func": refresh_stooq_commodities},
     ]
 
 
@@ -46,9 +47,10 @@ async def refresh_gold_metals() -> list[dict]:
     return metals
 
 
-async def refresh_alpha_indices() -> dict[str, list]:
-    fetcher = AlphaVantageFetcher()
-    us, jpkr = await asyncio.gather(fetcher.fetch_us_indices(), fetcher.fetch_jpkr_indices())
+async def refresh_global_indices() -> dict[str, list]:
+    stooq = StooqFetcher()
+    alpha = AlphaVantageFetcher()
+    us, jpkr = await asyncio.gather(stooq.fetch_us_indices(), alpha.fetch_jpkr_indices())
     jp, kr = jpkr
     groups = await _load_index_groups()
     groups["us"] = us
@@ -58,10 +60,10 @@ async def refresh_alpha_indices() -> dict[str, list]:
     return groups
 
 
-async def refresh_alpha_commodities() -> list[dict]:
-    fetcher = AlphaVantageFetcher()
+async def refresh_stooq_commodities() -> list[dict]:
+    fetcher = StooqFetcher()
     commodities = await fetcher.fetch_commodities()
-    await _refresh_combined_commodities(av=commodities)
+    await _refresh_combined_commodities(stooq=commodities)
     return commodities
 
 
@@ -74,13 +76,13 @@ async def ensure_market_data(*, include: set[str] | None = None) -> None:
         if "commodities" in requested:
             commodities = await cache_get("commodities:all")
             if not commodities:
-                jobs.extend((refresh_gold_metals(), refresh_alpha_commodities()))
+                jobs.extend((refresh_gold_metals(), refresh_stooq_commodities()))
 
         if "indices" in requested:
             groups = await cache_get("indices:groups")
             has_indices = bool(groups) and any(groups.get(key) for key in default_index_groups())
             if not has_indices:
-                jobs.extend((refresh_cn_indices(), refresh_alpha_indices()))
+                jobs.extend((refresh_cn_indices(), refresh_global_indices()))
 
         if "sectors" in requested:
             sectors = await cache_get("sectors:cn")
@@ -107,8 +109,8 @@ def start_scheduler() -> None:
     loop.create_task(refresh_cn_indices())
     loop.create_task(refresh_cn_sectors())
     loop.create_task(refresh_gold_metals())
-    loop.create_task(refresh_alpha_indices())
-    loop.create_task(refresh_alpha_commodities())
+    loop.create_task(refresh_global_indices())
+    loop.create_task(refresh_stooq_commodities())
 
 
 def stop_scheduler() -> None:
@@ -124,7 +126,10 @@ async def _load_index_groups() -> dict[str, list]:
     return {key: groups.get(key, []) for key in default_index_groups()}
 
 
-async def _refresh_combined_commodities(metals: list[dict] | None = None, av: list[dict] | None = None) -> None:
+async def _refresh_combined_commodities(
+    metals: list[dict] | None = None,
+    stooq: list[dict] | None = None,
+) -> None:
     metal_items = metals if metals is not None else (await cache_get("commodities:metals") or [])
-    av_items = av if av is not None else (await cache_get("commodities:av") or [])
-    await cache_set("commodities:all", metal_items + av_items)
+    stooq_items = stooq if stooq is not None else (await cache_get("commodities:stooq") or [])
+    await cache_set("commodities:all", metal_items + stooq_items)

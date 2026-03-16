@@ -27,7 +27,7 @@ async def get_overview() -> dict:
         sectors = await cache_get("sectors:cn")
 
     if commodities is None:
-        commodities = (await cache_get("commodities:metals") or []) + (await cache_get("commodities:av") or [])
+        commodities = (await cache_get("commodities:metals") or []) + (await cache_get("commodities:stooq") or [])
 
     if groups is None:
         groups = _empty_groups()

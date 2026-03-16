@@ -16,7 +16,7 @@ async def get_commodities() -> dict:
         combined = await cache_get("commodities:all")
 
     if combined is None:
-        combined = (await cache_get("commodities:metals") or []) + (await cache_get("commodities:av") or [])
+        combined = (await cache_get("commodities:metals") or []) + (await cache_get("commodities:stooq") or [])
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),

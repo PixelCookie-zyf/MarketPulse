@@ -8,6 +8,14 @@ from app.fetchers.alphavantage_fetcher import (
     is_rate_limited_response,
 )
 from app.fetchers.goldapi_fetcher import GoldSpec, extract_goldapi_item
+from app.fetchers.stooq_fetcher import (
+    STQ_COMMODITY_SPECS,
+    STQ_US_INDEX_SPECS,
+    StooqCommoditySpec,
+    StooqIndexSpec,
+    extract_stooq_commodity_item,
+    extract_stooq_index_item,
+)
 from app.scheduler import build_job_specs
 
 
@@ -148,11 +156,65 @@ def test_build_sparkline_uses_recent_numeric_values():
     assert build_sparkline([1, 2, "3.5", None, 4, 5, 6], limit=4) == [3.5, 4.0, 5.0, 6.0]
 
 
+def test_extract_stooq_index_item_maps_quote_and_sparkline():
+    result = extract_stooq_index_item(
+        "2026-03-13,22425.71,22521.38,22069.24,22105.36,4681146300",
+        StooqIndexSpec(symbol="^ndq", market_symbol="IXIC", name="纳斯达克"),
+        sparkline=[21980.12, 22144.8, 22091.45, 22105.36],
+    )
+
+    assert result == {
+        "symbol": "IXIC",
+        "name": "纳斯达克",
+        "value": 22105.36,
+        "change": 13.91,
+        "change_pct": 0.063,
+        "high": 22521.38,
+        "low": 22069.24,
+        "volume": 4681146300.0,
+        "sparkline": [21980.12, 22144.8, 22091.45, 22105.36],
+    }
+
+
+def test_extract_stooq_commodity_item_maps_quote_fields():
+    result = extract_stooq_commodity_item(
+        "2026-03-16,97.84,99.26,93.4,94.28,",
+        StooqCommoditySpec(symbol="cl.f", market_symbol="WTI", name="原油", name_en="Crude Oil", unit="USD/bbl"),
+    )
+
+    assert result == {
+        "symbol": "WTI",
+        "name": "原油",
+        "name_en": "Crude Oil",
+        "price": 94.28,
+        "change": -3.56,
+        "change_pct": -3.64,
+        "high": 99.26,
+        "low": 93.4,
+        "unit": "USD/bbl",
+    }
+
+
+def test_stooq_specs_cover_expanded_dashboard_symbols():
+    assert {spec.market_symbol for spec in STQ_US_INDEX_SPECS} == {"IXIC", "SPX", "DJI"}
+    assert {spec.market_symbol for spec in STQ_COMMODITY_SPECS} >= {
+        "WTI",
+        "BRENT",
+        "NATGAS",
+        "COPPER",
+        "CORN",
+        "WHEAT",
+        "COTTON",
+        "SUGAR",
+        "COFFEE",
+    }
+
+
 def test_scheduler_job_specs_reflect_free_tier_limits():
     specs = {spec["id"]: spec for spec in build_job_specs()}
 
     assert specs["cn_indices"]["minutes"] == 1
     assert specs["cn_sectors"]["minutes"] == 3
     assert specs["gold_metals"]["minutes"] == 15
-    assert specs["alpha_indices"]["hours"] == 12
-    assert specs["alpha_commodities"]["hours"] == 12
+    assert specs["global_indices"]["hours"] == 1
+    assert specs["stooq_commodities"]["hours"] == 1
