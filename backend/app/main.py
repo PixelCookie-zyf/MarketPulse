@@ -57,13 +57,3 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/debug/global-indices")
-async def debug_global_indices() -> dict:
-    import traceback
-    from app.fetchers.akshare_fetcher import AKShareFetcher
-    try:
-        fetcher = AKShareFetcher()
-        result = await fetcher.fetch_global_indices()
-        return {"ok": True, "us": len(result["us"]), "jp": len(result["jp"]), "kr": len(result["kr"]), "hk": len(result["hk"]), "data": result}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "trace": traceback.format_exc()}
