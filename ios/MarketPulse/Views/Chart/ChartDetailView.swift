@@ -114,6 +114,13 @@ struct ChartDetailView: View {
                 .frame(height: 280)
                 .frame(maxWidth: .infinity)
         } else {
+            let prices = viewModel.chartPoints.map(\.price)
+            let minPrice = prices.min() ?? 0
+            let maxPrice = prices.max() ?? 0
+            let padding = max((maxPrice - minPrice) * 0.1, maxPrice * 0.002)
+            let yMin = minPrice - padding
+            let yMax = maxPrice + padding
+
             Chart {
                 ForEach(Array(viewModel.chartPoints.enumerated()), id: \.offset) { index, point in
                     LineMark(
@@ -126,7 +133,8 @@ struct ChartDetailView: View {
 
                     AreaMark(
                         x: .value("Time", index),
-                        y: .value("Price", point.price)
+                        yStart: .value("Min", yMin),
+                        yEnd: .value("Price", point.price)
                     )
                     .foregroundStyle(
                         LinearGradient(
@@ -140,7 +148,7 @@ struct ChartDetailView: View {
             }
             .chartXAxis(.hidden)
             .chartYAxis {
-                AxisMarks(position: .trailing) { value in
+                AxisMarks(position: .trailing, values: .automatic(desiredCount: 5)) { value in
                     AxisValueLabel {
                         if let price = value.as(Double.self) {
                             Text(String(format: "%.2f", price))
@@ -152,7 +160,7 @@ struct ChartDetailView: View {
                         .foregroundStyle(AppTheme.Colors.secondaryText.opacity(0.2))
                 }
             }
-            .chartYScale(domain: .automatic(includesZero: false))
+            .chartYScale(domain: yMin...yMax)
             .frame(height: 280)
             .padding(.vertical, 8)
         }
