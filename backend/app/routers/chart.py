@@ -3,20 +3,9 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Query
 
 from app.cache import cache_get, cache_set
-from app.fetchers.akshare_fetcher import AKShareFetcher, EM_GLOBAL_INDEX_MAP
+from app.fetchers.akshare_fetcher import AKShareFetcher
 
 router = APIRouter(prefix="/api/v1", tags=["chart"])
-
-# Known global index symbols
-GLOBAL_INDEX_SYMBOLS = {spec["symbol"] for spec in EM_GLOBAL_INDEX_MAP.values()}
-
-
-def _classify_symbol(symbol: str) -> str:
-    if symbol.startswith("sh") or symbol.startswith("sz"):
-        return "cn_index"
-    if symbol in GLOBAL_INDEX_SYMBOLS:
-        return "global_index"
-    return "commodity"
 
 
 @router.get("/chart/intraday")
@@ -31,19 +20,15 @@ async def get_intraday(
 
     fetcher = AKShareFetcher()
     data: list[dict] = []
-    kind = _classify_symbol(symbol)
 
-    if kind == "cn_index":
+    if symbol.startswith("sh") or symbol.startswith("sz"):
+        # A-share index
         if period == "5d":
             data = await fetcher.fetch_index_daily_history(symbol, days=5)
         else:
             data = await fetcher.fetch_index_intraday(symbol)
-
-    elif kind == "global_index":
-        days = 5 if period == "5d" else 1
-        data = await fetcher.fetch_global_index_chart(symbol, days=days)
-
-    else:  # commodity
+    else:
+        # Commodity or global index futures — all use Sina futures
         if period == "5d":
             data = await fetcher.fetch_commodity_5d(symbol)
         else:

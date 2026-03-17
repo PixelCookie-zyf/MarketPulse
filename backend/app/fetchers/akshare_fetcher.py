@@ -10,15 +10,15 @@ from app.fetchers.base import build_sparkline, to_float
 
 CN_INDEX_CODES = ("sh000001", "sh000300", "sz399001", "sz399006", "sh000688")
 
-# 东方财富全球指数 → 我们的标准 symbol 映射
-EM_GLOBAL_INDEX_MAP = {
-    "纳斯达克": {"symbol": "IXIC", "name": "纳斯达克"},
-    "标普500": {"symbol": "SPX", "name": "标普500"},
-    "道琼斯": {"symbol": "DJI", "name": "道琼斯"},
-    "日经225": {"symbol": "N225", "name": "日经225"},
-    "韩国KOSPI": {"symbol": "KOSPI", "name": "韩国KOSPI"},
-    "恒生指数": {"symbol": "HSI", "name": "恒生指数"},
+# 全球指数 — 从 futures_global_spot_em 获取（该接口不被封）
+# 用指数期货价格代替实际指数（走势一致）
+EM_GLOBAL_INDEX_FUTURES = {
+    "小型纳指当月连续": {"symbol": "IXIC", "name": "纳斯达克", "region": "us"},
+    "小型标普当月连续": {"symbol": "SPX", "name": "标普500", "region": "us"},
+    "小型道指当月连续": {"symbol": "DJI", "name": "道琼斯", "region": "us"},
 }
+# 这些指数没有对应期货，暂不支持：日经225、韩国KOSPI、恒生指数
+# 后续可通过添加代理或其他数据源解决
 
 # 东方财富全球期货 — 精确匹配名称（不带月份后缀的主力合约行）
 EM_COMMODITY_MAP = {
@@ -149,114 +149,44 @@ class AKShareFetcher:
                 print(f"[AKShare] domestic commodity {sina_code} error: {e}")
         return items
 
-    # Market symbol → Eastmoney Chinese name (for index_global_hist_em)
-    SYM_TO_EM_NAME = {
-        "IXIC": "纳斯达克", "SPX": "标普500", "DJI": "道琼斯",
-        "N225": "日经225", "KOSPI": "韩国KOSPI", "HSI": "恒生指数",
-    }
-
     async def fetch_global_indices(self) -> dict[str, list[dict]]:
-        """Fetch global indices from Eastmoney (index_global_spot_em) with sparklines."""
+        """Fetch global indices from futures_global_spot_em (this endpoint is NOT blocked)."""
         try:
-            frame = await asyncio.to_thread(ak.index_global_spot_em)
+            # Reuse the same futures data we already fetch for commodities
+            frame = await asyncio.to_thread(ak.futures_global_spot_em)
         except Exception as e:
             print(f"[AKShare] fetch_global_indices error: {e}")
             return {"us": [], "jp": [], "kr": [], "hk": []}
 
-        # Collect items (this part can't fail since frame is already loaded)
-        all_items: list[dict] = []
+        us = []
         for _, row in frame.iterrows():
             name = str(row.get("名称", "")).strip()
-            spec = EM_GLOBAL_INDEX_MAP.get(name)
+            spec = EM_GLOBAL_INDEX_FUTURES.get(name)
             if spec is None:
                 continue
-            all_items.append({
+            price = to_float(row.get("最新价"))
+            if not price:
+                continue
+            prev = to_float(row.get("昨结"), default=price)
+            change = price - prev
+            change_pct = (change / prev * 100) if prev else 0
+            us.append({
                 "symbol": spec["symbol"],
                 "name": spec["name"],
-                "value": round(to_float(row.get("最新价")), 4),
-                "change": round(to_float(row.get("涨跌额")), 4),
-                "change_pct": round(to_float(row.get("涨跌幅")), 4),
-                "high": round(to_float(row.get("最新价")), 4),
-                "low": round(to_float(row.get("最新价")), 4),
+                "value": round(price, 4),
+                "change": round(change, 4),
+                "change_pct": round(change_pct, 2),
+                "high": round(to_float(row.get("最高"), default=price), 4),
+                "low": round(to_float(row.get("最低"), default=price), 4),
                 "volume": 0,
                 "sparkline": [],
             })
 
-        # Sparklines: best-effort, failures don't affect main data
-        try:
-            sparkline_map = await self._fetch_global_sparklines([i["symbol"] for i in all_items])
-            for item in all_items:
-                item["sparkline"] = sparkline_map.get(item["symbol"], [])
-        except Exception as e:
-            print(f"[AKShare] sparkline fetch failed (non-fatal): {e}")
-
-        # Group by region
-        us, jp, kr, hk = [], [], [], []
-        for item in all_items:
-            sym = item["symbol"]
-            if sym in ("IXIC", "SPX", "DJI"):
-                us.append(item)
-            elif sym == "N225":
-                jp.append(item)
-            elif sym == "KOSPI":
-                kr.append(item)
-            elif sym == "HSI":
-                hk.append(item)
-
-        result = {"us": us, "jp": jp, "kr": kr, "hk": hk}
+        result = {"us": us, "jp": [], "kr": [], "hk": []}
         for key, items in result.items():
-            await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
+            if items:
+                await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
         return result
-
-    async def _fetch_global_sparklines(self, symbols: list[str]) -> dict[str, list[float]]:
-        """Fetch 7-day sparkline data for global indices."""
-        results: dict[str, list[float]] = {}
-        tasks = [asyncio.to_thread(self._fetch_global_hist, sym) for sym in symbols]
-        histories = await asyncio.gather(*tasks, return_exceptions=True)
-        for sym, history in zip(symbols, histories):
-            if isinstance(history, list) and history:
-                results[sym] = history
-        return results
-
-    def _fetch_global_hist(self, symbol: str) -> list[float]:
-        """Fetch recent daily closes for a global index from Eastmoney."""
-        em_name = self.SYM_TO_EM_NAME.get(symbol)
-        if not em_name:
-            return []
-        try:
-            frame = ak.index_global_hist_em(symbol=em_name)
-            if frame.empty:
-                return []
-            close_col = "最新价" if "最新价" in frame.columns else "收盘"
-            closes = frame[close_col].tolist()
-            return build_sparkline(closes, limit=7)
-        except Exception as e:
-            print(f"[AKShare] _fetch_global_hist error for {symbol}: {e}")
-            return []
-
-    async def fetch_global_index_chart(self, symbol: str, days: int = 5) -> list[dict]:
-        """Fetch daily history for a global index from Eastmoney."""
-        em_name = self.SYM_TO_EM_NAME.get(symbol)
-        if not em_name:
-            return []
-        try:
-            frame = await asyncio.to_thread(
-                ak.index_global_hist_em, symbol=em_name
-            )
-            if frame.empty:
-                return []
-            recent = frame.tail(days)
-            items = []
-            for _, row in recent.iterrows():
-                items.append({
-                    "time": str(row.get("日期", "")),
-                    "price": round(to_float(row.get("最新价", 0)), 4),
-                    "volume": 0,
-                })
-            return items
-        except Exception as e:
-            print(f"[AKShare] fetch_global_index_chart error for {symbol}: {e}")
-            return []
 
     async def fetch_global_commodities(self) -> list[dict]:
         """Fetch global commodity futures from Eastmoney + domestic from Sina."""
