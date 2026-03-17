@@ -44,6 +44,9 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            47.102.109.227:
+              NSTemporaryExceptionAllowsInsecureHTTPLoads: true
   MarketPulseTests:
     type: bundle.unit-test
     platform: iOS

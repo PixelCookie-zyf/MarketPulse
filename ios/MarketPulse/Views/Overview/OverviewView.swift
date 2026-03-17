@@ -9,9 +9,20 @@ struct OverviewView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     statusHeader
 
+                    // Market status pills
+                    marketStatusBar
+
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(viewModel.commodities) { item in
+                        ForEach(Array(viewModel.commodities.enumerated()), id: \.element.id) { index, item in
                             CommodityCardView(item: item)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .bottom)),
+                                    removal: .opacity
+                                ))
+                                .animation(
+                                    .easeOut(duration: 0.3).delay(Double(index) * 0.05),
+                                    value: viewModel.commodities
+                                )
                         }
                     }
 
@@ -28,6 +39,82 @@ struct OverviewView: View {
             }
         }
     }
+
+    // MARK: - Market Status Bar
+
+    private var marketStatusBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                MarketStatusPill(name: "A股", isOpen: isMarketOpen(.cn))
+                MarketStatusPill(name: "港股", isOpen: isMarketOpen(.hk))
+                MarketStatusPill(name: "美股", isOpen: isMarketOpen(.us))
+                MarketStatusPill(name: "日股", isOpen: isMarketOpen(.jp))
+                MarketStatusPill(name: "韩股", isOpen: isMarketOpen(.kr))
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
+    // MARK: - Market Open Logic
+
+    private enum MarketRegion {
+        case cn, hk, us, jp, kr
+    }
+
+    private func isMarketOpen(_ region: MarketRegion) -> Bool {
+        let now = Date()
+
+        let weekday: Int
+        switch region {
+        case .cn, .hk:
+            let tz = TimeZone(identifier: "Asia/Shanghai")!
+            var cal = Calendar.current
+            cal.timeZone = tz
+            weekday = cal.component(.weekday, from: now)
+            guard weekday >= 2 && weekday <= 6 else { return false }
+            return isWithinHours(now, timeZone: tz, openHour: 9, openMinute: 30,
+                                 closeHour: region == .cn ? 15 : 16, closeMinute: 0)
+        case .us:
+            let tz = TimeZone(identifier: "America/New_York")!
+            var cal = Calendar.current
+            cal.timeZone = tz
+            weekday = cal.component(.weekday, from: now)
+            guard weekday >= 2 && weekday <= 6 else { return false }
+            return isWithinHours(now, timeZone: tz, openHour: 9, openMinute: 30,
+                                 closeHour: 16, closeMinute: 0)
+        case .jp:
+            let tz = TimeZone(identifier: "Asia/Tokyo")!
+            var cal = Calendar.current
+            cal.timeZone = tz
+            weekday = cal.component(.weekday, from: now)
+            guard weekday >= 2 && weekday <= 6 else { return false }
+            return isWithinHours(now, timeZone: tz, openHour: 9, openMinute: 0,
+                                 closeHour: 15, closeMinute: 0)
+        case .kr:
+            let tz = TimeZone(identifier: "Asia/Seoul")!
+            var cal = Calendar.current
+            cal.timeZone = tz
+            weekday = cal.component(.weekday, from: now)
+            guard weekday >= 2 && weekday <= 6 else { return false }
+            return isWithinHours(now, timeZone: tz, openHour: 9, openMinute: 0,
+                                 closeHour: 15, closeMinute: 30)
+        }
+    }
+
+    private func isWithinHours(_ date: Date, timeZone: TimeZone,
+                                openHour: Int, openMinute: Int,
+                                closeHour: Int, closeMinute: Int) -> Bool {
+        var calendar = Calendar.current
+        calendar.timeZone = timeZone
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let totalMinutes = hour * 60 + minute
+        let openTotal = openHour * 60 + openMinute
+        let closeTotal = closeHour * 60 + closeMinute
+        return totalMinutes >= openTotal && totalMinutes < closeTotal
+    }
+
+    // MARK: - Status Header
 
     private var statusHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -133,38 +220,75 @@ struct OverviewView: View {
         }
     }
 
+    // MARK: - Sectors Preview (horizontal scrolling tags)
+
     private var sectorsPreview: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("A股板块热度")
                 .font(.title3.weight(.bold))
                 .foregroundStyle(AppTheme.Colors.primaryText)
 
-            VStack(spacing: 12) {
-                ForEach(Array(viewModel.sectors.prefix(6))) { sector in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(sector.name)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(AppTheme.Colors.primaryText)
-                            if let leadingStock = sector.leadingStock, !leadingStock.isEmpty {
-                                Text(leadingStock)
-                                    .font(.caption)
-                                    .foregroundStyle(AppTheme.Colors.secondaryText)
-                            }
-                        }
-
-                        Spacer()
-
-                        Text(sector.changePct, format: .number.precision(.fractionLength(2)))
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(AppTheme.Colors.changeColor(isUp: sector.isUp))
-                            + Text("%")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(AppTheme.Colors.changeColor(isUp: sector.isUp))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(viewModel.sectors.prefix(10)) { sector in
+                        sectorTag(sector)
                     }
                 }
+                .padding(.horizontal, 2)
             }
-            .marketCardStyle()
         }
+    }
+
+    private func sectorTag(_ sector: SectorItem) -> some View {
+        let color = AppTheme.Colors.changeColor(isUp: sector.isUp)
+        return HStack(spacing: 4) {
+            Text(sector.name)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppTheme.Colors.primaryText)
+            Text(String(format: "%+.2f%%", sector.changePct))
+                .font(.caption.weight(.bold))
+                .foregroundStyle(color)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.08))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(color.opacity(0.15), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - MarketStatusPill
+
+private struct MarketStatusPill: View {
+    let name: String
+    let isOpen: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(isOpen ? Color.green : Color.gray)
+                .frame(width: 6, height: 6)
+            Text(name)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(isOpen ? AppTheme.Colors.primaryText : AppTheme.Colors.secondaryText)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            isOpen
+                ? Color.green.opacity(0.08)
+                : AppTheme.Colors.cardBackground
+        )
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(
+                    isOpen ? Color.green.opacity(0.2) : Color.gray.opacity(0.15),
+                    lineWidth: 1
+                )
+        )
     }
 }

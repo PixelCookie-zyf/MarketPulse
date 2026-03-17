@@ -24,6 +24,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("板块", systemImage: "square.grid.2x2")
                 }
+
+            SettingsView()
+                .tabItem {
+                    Label("设置", systemImage: "gearshape")
+                }
         }
         .tint(AppTheme.Colors.accent)
         .task {

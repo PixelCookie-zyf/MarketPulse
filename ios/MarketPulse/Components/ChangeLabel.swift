@@ -17,5 +17,6 @@ struct ChangeLabel: View {
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(AppTheme.Colors.changeColor(isUp: isUp))
+        .shadow(color: AppTheme.Colors.changeColor(isUp: isUp).opacity(0.4), radius: 2)
     }
 }
