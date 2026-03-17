@@ -9,6 +9,9 @@ struct ChartDetailView: View {
     let change: Double
     let changePct: Double
 
+    // Crosshair state
+    @State private var selectedIndex: Int?
+
     init(symbol: String, name: String, currentPrice: Double, change: Double, changePct: Double) {
         _viewModel = StateObject(wrappedValue: ChartViewModel(symbol: symbol, name: name))
         self.currentPrice = currentPrice
@@ -19,20 +22,21 @@ struct ChartDetailView: View {
     private var isUp: Bool { change >= 0 }
     private var accentColor: Color { AppTheme.Colors.changeColor(isUp: isUp) }
 
+    /// The point currently under the crosshair, or nil.
+    private var selectedPoint: ChartPoint? {
+        guard let idx = selectedIndex,
+              idx >= 0,
+              idx < viewModel.chartPoints.count else { return nil }
+        return viewModel.chartPoints[idx]
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // Price header
                     priceHeader
-
-                    // Period selector
                     periodPicker
-
-                    // Chart
                     chartView
-
-                    // Stats grid
                     statsGrid
                 }
                 .padding(16)
@@ -54,30 +58,45 @@ struct ChartDetailView: View {
         }
     }
 
+    // MARK: - Price Header
+
     private var priceHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(format: "%.2f", currentPrice))
+            // Show selected point price when crosshair is active
+            let displayPrice = selectedPoint?.price ?? currentPrice
+
+            Text(String(format: "%.2f", displayPrice))
                 .font(.system(size: 40, weight: .heavy, design: .rounded))
                 .foregroundStyle(AppTheme.Colors.primaryText)
                 .contentTransition(.numericText())
+                .animation(.easeOut(duration: 0.1), value: selectedIndex)
 
-            HStack(spacing: 8) {
-                Text(String(format: "%+.2f", change))
+            if let point = selectedPoint {
+                // Show time of selected point
+                Text(point.time)
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(accentColor)
-
-                Text(String(format: "(%+.2f%%)", changePct))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(AppTheme.Colors.secondaryText)
+            } else {
+                HStack(spacing: 8) {
+                    Text(String(format: "%+.2f", change))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(accentColor)
+                    Text(String(format: "(%+.2f%%)", changePct))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(accentColor)
+                }
+                .shadow(color: accentColor.opacity(0.3), radius: 4)
             }
-            .shadow(color: accentColor.opacity(0.3), radius: 4)
         }
     }
+
+    // MARK: - Period Picker
 
     private var periodPicker: some View {
         HStack(spacing: 0) {
             ForEach(ChartViewModel.ChartPeriod.allCases, id: \.self) { period in
                 Button {
+                    selectedIndex = nil
                     withAnimation(.easeInOut(duration: 0.2)) {
                         viewModel.selectedPeriod = period
                     }
@@ -102,6 +121,8 @@ struct ChartDetailView: View {
         .clipShape(Capsule())
     }
 
+    // MARK: - Chart
+
     @ViewBuilder
     private var chartView: some View {
         if viewModel.isLoading {
@@ -120,6 +141,7 @@ struct ChartDetailView: View {
             let padding = max((maxPrice - minPrice) * 0.1, maxPrice * 0.002)
             let yMin = minPrice - padding
             let yMax = maxPrice + padding
+            let pointCount = viewModel.chartPoints.count
 
             Chart {
                 ForEach(Array(viewModel.chartPoints.enumerated()), id: \.offset) { index, point in
@@ -145,6 +167,66 @@ struct ChartDetailView: View {
                     )
                     .interpolationMethod(.catmullRom)
                 }
+
+                // Crosshair
+                if let idx = selectedIndex, let point = selectedPoint {
+                    // Vertical line
+                    RuleMark(x: .value("Selected", idx))
+                        .foregroundStyle(AppTheme.Colors.secondaryText.opacity(0.6))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+
+                    // Horizontal line
+                    RuleMark(y: .value("Price", point.price))
+                        .foregroundStyle(AppTheme.Colors.secondaryText.opacity(0.6))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+
+                    // Dot at intersection
+                    PointMark(
+                        x: .value("Selected", idx),
+                        y: .value("Price", point.price)
+                    )
+                    .symbol(Circle())
+                    .symbolSize(60)
+                    .foregroundStyle(accentColor)
+
+                    // Price label on Y axis
+                    PointMark(
+                        x: .value("Selected", idx),
+                        y: .value("Price", point.price)
+                    )
+                    .symbol(Circle())
+                    .symbolSize(0)
+                    .annotation(position: .topTrailing, spacing: 6) {
+                        Text(String(format: "%.2f", point.price))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(accentColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+
+                    // Time label at bottom
+                    PointMark(
+                        x: .value("Selected", idx),
+                        y: .value("Price", yMin)
+                    )
+                    .symbol(Circle())
+                    .symbolSize(0)
+                    .annotation(position: .bottom, spacing: 4) {
+                        Text(point.time)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(AppTheme.Colors.primaryText)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(AppTheme.Colors.cardBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .stroke(AppTheme.Colors.secondaryText.opacity(0.3), lineWidth: 0.5)
+                            )
+                    }
+                }
             }
             .chartXAxis(.hidden)
             .chartYAxis {
@@ -161,10 +243,24 @@ struct ChartDetailView: View {
                 }
             }
             .chartYScale(domain: yMin...yMax)
+            .chartXSelection(value: $selectedIndex)
+            .chartGesture { proxy in
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if let idx: Int = proxy.value(atX: value.location.x) {
+                            selectedIndex = max(0, min(idx, pointCount - 1))
+                        }
+                    }
+                    .onEnded { _ in
+                        selectedIndex = nil
+                    }
+            }
             .frame(height: 280)
             .padding(.vertical, 8)
         }
     }
+
+    // MARK: - Stats
 
     private var statsGrid: some View {
         let prices = viewModel.chartPoints.map(\.price)
