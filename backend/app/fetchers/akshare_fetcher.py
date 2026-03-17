@@ -149,10 +149,10 @@ class AKShareFetcher:
                 print(f"[AKShare] domestic commodity {sina_code} error: {e}")
         return items
 
-    # Market symbol → Eastmoney hist code
-    SYM_TO_EM_HIST = {
-        "IXIC": "NDX", "SPX": "SPX", "DJI": "DJIA",
-        "N225": "N225", "KOSPI": "KS11", "HSI": "HSI",
+    # Market symbol → Eastmoney Chinese name (for index_global_hist_em)
+    SYM_TO_EM_NAME = {
+        "IXIC": "纳斯达克", "SPX": "标普500", "DJI": "道琼斯",
+        "N225": "日经225", "KOSPI": "韩国KOSPI", "HSI": "恒生指数",
     }
 
     async def fetch_global_indices(self) -> dict[str, list[dict]]:
@@ -216,14 +216,14 @@ class AKShareFetcher:
 
     def _fetch_global_hist(self, symbol: str) -> list[float]:
         """Fetch recent daily closes for a global index from Eastmoney."""
-        em_code = self.SYM_TO_EM_HIST.get(symbol)
-        if not em_code:
+        em_name = self.SYM_TO_EM_NAME.get(symbol)
+        if not em_name:
             return []
         try:
-            frame = ak.index_global_hist_em(symbol=em_code)
+            frame = ak.index_global_hist_em(symbol=em_name)
             if frame.empty:
                 return []
-            close_col = "收盘" if "收盘" in frame.columns else "close"
+            close_col = "最新价" if "最新价" in frame.columns else "收盘"
             closes = frame[close_col].tolist()
             return build_sparkline(closes, limit=7)
         except Exception as e:
@@ -232,12 +232,12 @@ class AKShareFetcher:
 
     async def fetch_global_index_chart(self, symbol: str, days: int = 5) -> list[dict]:
         """Fetch daily history for a global index from Eastmoney."""
-        em_code = self.SYM_TO_EM_HIST.get(symbol)
-        if not em_code:
+        em_name = self.SYM_TO_EM_NAME.get(symbol)
+        if not em_name:
             return []
         try:
             frame = await asyncio.to_thread(
-                ak.index_global_hist_em, symbol=em_code
+                ak.index_global_hist_em, symbol=em_name
             )
             if frame.empty:
                 return []
@@ -246,8 +246,8 @@ class AKShareFetcher:
             for _, row in recent.iterrows():
                 items.append({
                     "time": str(row.get("日期", "")),
-                    "price": round(to_float(row.get("收盘", 0)), 4),
-                    "volume": to_float(row.get("成交量", 0)),
+                    "price": round(to_float(row.get("最新价", 0)), 4),
+                    "volume": 0,
                 })
             return items
         except Exception as e:
