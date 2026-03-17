@@ -159,50 +159,54 @@ class AKShareFetcher:
         """Fetch global indices from Eastmoney (index_global_spot_em) with sparklines."""
         try:
             frame = await asyncio.to_thread(ak.index_global_spot_em)
-            # First pass: collect items
-            all_items: list[dict] = []
-            for _, row in frame.iterrows():
-                name = str(row.get("名称", "")).strip()
-                spec = EM_GLOBAL_INDEX_MAP.get(name)
-                if spec is None:
-                    continue
-                all_items.append({
-                    "symbol": spec["symbol"],
-                    "name": spec["name"],
-                    "value": round(to_float(row.get("最新价")), 4),
-                    "change": round(to_float(row.get("涨跌额")), 4),
-                    "change_pct": round(to_float(row.get("涨跌幅")), 4),
-                    "high": round(to_float(row.get("最新价")), 4),
-                    "low": round(to_float(row.get("最新价")), 4),
-                    "volume": 0,
-                    "sparkline": [],
-                })
-
-            # Fetch sparklines in parallel
-            sparkline_map = await self._fetch_global_sparklines([i["symbol"] for i in all_items])
-            for item in all_items:
-                item["sparkline"] = sparkline_map.get(item["symbol"], [])
-
-            # Group by region
-            us, jp, kr, hk = [], [], [], []
-            for item in all_items:
-                sym = item["symbol"]
-                if sym in ("IXIC", "SPX", "DJI"):
-                    us.append(item)
-                elif sym == "N225":
-                    jp.append(item)
-                elif sym == "KOSPI":
-                    kr.append(item)
-                elif sym == "HSI":
-                    hk.append(item)
-
-            result = {"us": us, "jp": jp, "kr": kr, "hk": hk}
-            for key, items in result.items():
-                await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
-            return result
         except Exception as e:
             print(f"[AKShare] fetch_global_indices error: {e}")
             return {"us": [], "jp": [], "kr": [], "hk": []}
+
+        # Collect items (this part can't fail since frame is already loaded)
+        all_items: list[dict] = []
+        for _, row in frame.iterrows():
+            name = str(row.get("名称", "")).strip()
+            spec = EM_GLOBAL_INDEX_MAP.get(name)
+            if spec is None:
+                continue
+            all_items.append({
+                "symbol": spec["symbol"],
+                "name": spec["name"],
+                "value": round(to_float(row.get("最新价")), 4),
+                "change": round(to_float(row.get("涨跌额")), 4),
+                "change_pct": round(to_float(row.get("涨跌幅")), 4),
+                "high": round(to_float(row.get("最新价")), 4),
+                "low": round(to_float(row.get("最新价")), 4),
+                "volume": 0,
+                "sparkline": [],
+            })
+
+        # Sparklines: best-effort, failures don't affect main data
+        try:
+            sparkline_map = await self._fetch_global_sparklines([i["symbol"] for i in all_items])
+            for item in all_items:
+                item["sparkline"] = sparkline_map.get(item["symbol"], [])
+        except Exception as e:
+            print(f"[AKShare] sparkline fetch failed (non-fatal): {e}")
+
+        # Group by region
+        us, jp, kr, hk = [], [], [], []
+        for item in all_items:
+            sym = item["symbol"]
+            if sym in ("IXIC", "SPX", "DJI"):
+                us.append(item)
+            elif sym == "N225":
+                jp.append(item)
+            elif sym == "KOSPI":
+                kr.append(item)
+            elif sym == "HSI":
+                hk.append(item)
+
+        result = {"us": us, "jp": jp, "kr": kr, "hk": hk}
+        for key, items in result.items():
+            await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
+        return result
 
     async def _fetch_global_sparklines(self, symbols: list[str]) -> dict[str, list[float]]:
         """Fetch 7-day sparkline data for global indices."""
