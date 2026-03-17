@@ -46,6 +46,12 @@ STQ_JP_INDEX_SPECS = (
     StooqIndexSpec(symbol="^nkx", market_symbol="N225", name="日经225"),
 )
 
+# Market symbol → Stooq symbol mapping for chart lookups
+MARKET_TO_STOOQ = {
+    "IXIC": "^ndq", "SPX": "^spx", "DJI": "^dji",
+    "HSI": "^hsi", "N225": "^nkx", "KOSPI": "^kospi",
+}
+
 STQ_KR_INDEX_SPECS = (
     StooqIndexSpec(symbol="^kospi", market_symbol="KOSPI", name="韩国KOSPI"),
 )
@@ -154,6 +160,35 @@ class StooqFetcher:
         items = [item for item in results if isinstance(item, dict)]
         await cache_set("indices:jp", items, ttl=settings.cache_ttl_index)
         return items
+
+    async def fetch_global_index_chart(self, market_symbol: str, days: int = 5) -> list[dict]:
+        """Fetch daily close history for a global index from Stooq."""
+        stooq_symbol = MARKET_TO_STOOQ.get(market_symbol)
+        if not stooq_symbol:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
+                response = await self._get_with_retry(client, HISTORY_URL, {"s": stooq_symbol, "i": "d"})
+            lines = [line.strip() for line in response.text.splitlines() if line.strip()]
+            if len(lines) < 3:
+                return []
+            # Parse CSV: header + last N+buffer rows
+            sample = "\n".join([lines[0], *lines[-(days + 2):]])
+            rows = list(csv.DictReader(StringIO(sample)))
+            if not rows:
+                return []
+            recent = rows[-days:] if len(rows) >= days else rows
+            items = []
+            for row in recent:
+                items.append({
+                    "time": row.get("Date", ""),
+                    "price": round(float(row.get("Close", 0)), 4),
+                    "volume": float(row.get("Volume", 0) or 0),
+                })
+            return items
+        except Exception as e:
+            print(f"[Stooq] fetch_global_index_chart error for {market_symbol}: {e}")
+            return []
 
     async def fetch_kr_indices(self) -> list[dict]:
         async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
