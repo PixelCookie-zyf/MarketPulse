@@ -21,14 +21,14 @@ struct OverviewResponse: Codable, Equatable {
                 unit: "USD/oz"
             ),
             CommodityItem(
-                symbol: "WTI",
-                name: "原油",
-                nameEn: "Crude Oil",
-                price: 78.30,
+                symbol: "BRENT",
+                name: "布伦特原油",
+                nameEn: "Brent Oil",
+                price: 74.50,
                 change: -0.85,
                 changePct: -1.07,
-                high: 79.42,
-                low: 77.88,
+                high: 75.20,
+                low: 73.80,
                 unit: "USD/bbl"
             )
         ],

@@ -284,19 +284,19 @@ def test_extract_stooq_hk_index_item_maps_quote_and_sparkline():
 
 def test_extract_stooq_commodity_item_maps_quote_fields():
     result = extract_stooq_commodity_item(
-        "2026-03-16,97.84,99.26,93.4,94.28,",
-        StooqCommoditySpec(symbol="cl.f", market_symbol="WTI", name="原油", name_en="Crude Oil", unit="USD/bbl"),
+        "2026-03-16,73.84,75.26,72.4,74.28,",
+        StooqCommoditySpec(symbol="cb.f", market_symbol="BRENT", name="布伦特原油", name_en="Brent Oil", unit="USD/bbl"),
     )
 
     assert result == {
-        "symbol": "WTI",
-        "name": "原油",
-        "name_en": "Crude Oil",
-        "price": 94.28,
-        "change": -3.56,
-        "change_pct": -3.64,
-        "high": 99.26,
-        "low": 93.4,
+        "symbol": "BRENT",
+        "name": "布伦特原油",
+        "name_en": "Brent Oil",
+        "price": 74.28,
+        "change": 0.44,
+        "change_pct": 0.6,
+        "high": 75.26,
+        "low": 72.4,
         "unit": "USD/bbl",
     }
 
@@ -306,7 +306,6 @@ def test_stooq_specs_cover_expanded_dashboard_symbols():
     assert {spec.symbol for spec in GOLD_SPECS} | {spec.market_symbol for spec in STQ_COMMODITY_SPECS} == {
         "XAU",
         "XAG",
-        "WTI",
         "BRENT",
         "NATGAS",
         "COPPER",
@@ -363,7 +362,6 @@ async def test_refresh_combined_commodities_keeps_dashboard_order(monkeypatch):
         ],
         stooq=[
             {"symbol": "SUGAR", "name": "糖"},
-            {"symbol": "WTI", "name": "原油"},
             {"symbol": "BRENT", "name": "布伦特原油"},
             {"symbol": "COFFEE", "name": "咖啡"},
         ],
@@ -372,7 +370,6 @@ async def test_refresh_combined_commodities_keeps_dashboard_order(monkeypatch):
     assert [item["symbol"] for item in cached["commodities:all"]] == [
         "XAU",
         "XAG",
-        "WTI",
         "BRENT",
         "SUGAR",
         "COFFEE",

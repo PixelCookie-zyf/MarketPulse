@@ -23,7 +23,6 @@ _COMMODITY_ALL_TTL = 7200     # 2 hours (stooq commodities refresh every 1h)
 COMBINED_COMMODITY_SYMBOLS = (
     "XAU",
     "XAG",
-    "WTI",
     "BRENT",
     "NATGAS",
     "COPPER",

@@ -140,14 +140,14 @@ async def test_overview_endpoint_blocks_for_missing_sectors(monkeypatch):
         "commodities:all",
         [
             {
-                "symbol": "WTI",
-                "name": "原油",
-                "name_en": "Crude Oil",
-                "price": 70.1,
-                "change": 0.03,
-                "change_pct": 0.04,
-                "high": 70.1,
-                "low": 70.1,
+                "symbol": "BRENT",
+                "name": "布伦特原油",
+                "name_en": "Brent Oil",
+                "price": 74.5,
+                "change": 0.30,
+                "change_pct": 0.40,
+                "high": 75.0,
+                "low": 74.0,
                 "unit": "USD/bbl",
             }
         ],
@@ -202,7 +202,6 @@ async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order()
         [
             {"symbol": "COFFEE", "name": "咖啡"},
             {"symbol": "BRENT", "name": "布伦特原油"},
-            {"symbol": "WTI", "name": "原油"},
         ],
     )
 
@@ -212,7 +211,7 @@ async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order()
 
     body = response.json()
     assert response.status_code == 200
-    assert [item["symbol"] for item in body["data"]] == ["XAU", "XAG", "WTI", "BRENT", "COFFEE"]
+    assert [item["symbol"] for item in body["data"]] == ["XAU", "XAG", "BRENT", "COFFEE"]
 
     await close_cache()
 

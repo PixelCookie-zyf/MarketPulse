@@ -84,6 +84,32 @@ def extract_proxy_chart_items(payload: dict) -> list[dict]:
     return items
 
 
+# Commodity name mapping: futsseapi "name" → our spec
+PROXY_COMMODITY_MAP = {
+    "COMEX黄金": {"symbol": "XAU", "name": "黄金", "name_en": "Gold", "unit": "USD/oz"},
+    "COMEX白银": {"symbol": "XAG", "name": "白银", "name_en": "Silver", "unit": "USD/oz"},
+    "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USD/lb"},
+    "布伦特原油": {"symbol": "BRENT", "name": "布伦特原油", "name_en": "Brent Oil", "unit": "USD/bbl"},
+    "天然气": {"symbol": "NATGAS", "name": "天然气", "name_en": "Natural Gas", "unit": "USD/MMBtu"},
+    "玉米当月连续": {"symbol": "CORN", "name": "玉米", "name_en": "Corn", "unit": "USc/bu"},
+    "小麦当月连续": {"symbol": "WHEAT", "name": "小麦", "name_en": "Wheat", "unit": "USc/bu"},
+    "棉花当月连续": {"symbol": "COTTON", "name": "棉花", "name_en": "Cotton", "unit": "USc/lb"},
+    "糖11号当月连续": {"symbol": "SUGAR", "name": "糖", "name_en": "Sugar", "unit": "USc/lb"},
+}
+
+PROXY_COMMODITY_PRIORITY = ["XAU", "XAG", "BRENT", "NATGAS", "COPPER", "CORN", "WHEAT", "COTTON", "SUGAR"]
+
+
+def _match_proxy_commodity_spec(name: str) -> dict | None:
+    exact = PROXY_COMMODITY_MAP.get(name)
+    if exact is not None:
+        return exact
+    for base_name, spec in PROXY_COMMODITY_MAP.items():
+        if str(name).startswith(base_name):
+            return spec
+    return None
+
+
 class EastmoneyProxyFetcher:
     def __init__(self, timeout: float = 20.0):
         self.timeout = timeout
@@ -91,6 +117,46 @@ class EastmoneyProxyFetcher:
     @property
     def enabled(self) -> bool:
         return bool(settings.eastmoney_proxy_base_url)
+
+    async def fetch_global_commodities(self) -> list[dict]:
+        """Fetch commodity futures via Cloudflare proxy → futsseapi.eastmoney.com."""
+        if not self.enabled:
+            return []
+        try:
+            payload = await self._get_json("/global-commodities/spot")
+        except Exception as e:
+            print(f"[EastmoneyProxy] fetch_global_commodities error: {e}")
+            return []
+
+        rows = payload.get("list") or []
+        items: list[dict] = []
+        seen_symbols: set[str] = set()
+        for row in rows:
+            name = str(row.get("name", "")).strip()
+            spec = _match_proxy_commodity_spec(name)
+            if spec is None or spec["symbol"] in seen_symbols:
+                continue
+            price = to_float(row.get("p"))
+            if not price or price == 0:
+                continue
+            seen_symbols.add(spec["symbol"])
+            prev = to_float(row.get("zjsj"), default=price)
+            change = to_float(row.get("zde"), default=price - prev)
+            change_pct = to_float(row.get("zdf"), default=(change / prev * 100) if prev else 0.0)
+            items.append({
+                "symbol": spec["symbol"],
+                "name": spec["name"],
+                "name_en": spec["name_en"],
+                "price": round(price, 4),
+                "change": round(change, 4),
+                "change_pct": round(change_pct, 2),
+                "high": round(to_float(row.get("h"), default=price), 4),
+                "low": round(to_float(row.get("l"), default=price), 4),
+                "unit": spec["unit"],
+            })
+        order = {s: i for i, s in enumerate(PROXY_COMMODITY_PRIORITY)}
+        items.sort(key=lambda x: order.get(x["symbol"], 999))
+        return items
 
     async def fetch_global_indices(self) -> dict[str, list[dict]]:
         groups = {spec.region: [] for spec in PROXY_GLOBAL_INDEX_SPECS}

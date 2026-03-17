@@ -42,7 +42,6 @@ JP_KR_INDEX_SPECS = (
 )
 
 COMMODITY_SPECS = (
-    AVCommoditySpec(symbol="WTI", function="WTI", name="原油", name_en="Crude Oil", unit="USD/bbl", interval="daily"),
     AVCommoditySpec(symbol="COPPER", function="COPPER", name="铜", name_en="Copper", unit="USD/ton", interval="monthly"),
 )
 

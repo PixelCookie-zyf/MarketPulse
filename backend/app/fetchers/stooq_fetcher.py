@@ -57,7 +57,6 @@ STQ_KR_INDEX_SPECS = (
 )
 
 STQ_COMMODITY_SPECS = (
-    StooqCommoditySpec(symbol="cl.f", market_symbol="WTI", name="原油", name_en="Crude Oil", unit="USD/bbl"),
     StooqCommoditySpec(symbol="cb.f", market_symbol="BRENT", name="布伦特原油", name_en="Brent Oil", unit="USD/bbl"),
     StooqCommoditySpec(symbol="ng.f", market_symbol="NATGAS", name="天然气", name_en="Natural Gas", unit="USD/MMBtu"),
     StooqCommoditySpec(symbol="hg.f", market_symbol="COPPER", name="铜", name_en="Copper", unit="USc/lb"),

@@ -17,6 +17,22 @@ const FUTURE_KLINE_SECIDS = {
   DJI: "103.YM00Y",
 };
 
+// Commodity futures kline security IDs (market_code.symbol)
+const COMMODITY_KLINE_SECIDS = {
+  XAU: "101.GC00Y",      // COMEX Gold
+  XAG: "101.SI00Y",      // COMEX Silver
+  COPPER: "101.HG00Y",   // COMEX Copper
+  BRENT: "112.B00Y",     // ICE Brent
+  NATGAS: "102.NG00Y",   // NYMEX Natural Gas
+  CORN: "103.ZC00Y",     // CBOT Corn
+  WHEAT: "103.ZW00Y",    // CBOT Wheat
+  COTTON: "108.CT00Y",   // ICE Cotton
+  SUGAR: "108.SB00Y",    // ICE Sugar
+};
+
+const COMMODITY_SPOT_URL = "https://futsseapi.eastmoney.com/list/COMEX,NYMEX,COBOT,SGX,NYBOT,LME,MDEX,TOCOM,IPE";
+const COMMODITY_SPOT_TOKEN = "58b2fa8f54638b60b87d69b31969089c";
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
@@ -40,12 +56,24 @@ export default {
     }
 
     let upstreamUrl;
+    let upstreamHeaders = {
+      "accept": "application/json,text/plain,*/*",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+      "referer": "https://quote.eastmoney.com/",
+      "user-agent": env.UPSTREAM_USER_AGENT || DEFAULT_UA,
+    };
+
     if (url.pathname === "/global-indices/spot") {
       upstreamUrl = buildIndexSpotUrl();
     } else if (url.pathname === "/global-indices/kline") {
       upstreamUrl = buildKlineUrl(INDEX_KLINE_SECIDS, url.searchParams);
     } else if (url.pathname === "/global-futures/kline") {
       upstreamUrl = buildKlineUrl(FUTURE_KLINE_SECIDS, url.searchParams);
+    } else if (url.pathname === "/global-commodities/spot") {
+      upstreamUrl = buildCommoditySpotUrl();
+      upstreamHeaders.referer = "https://quote.eastmoney.com/center/gridlist.html";
+    } else if (url.pathname === "/global-commodities/kline") {
+      upstreamUrl = buildKlineUrl(COMMODITY_KLINE_SECIDS, url.searchParams);
     } else {
       return json({ error: "not_found" }, 404, env);
     }
@@ -54,12 +82,7 @@ export default {
     }
 
     const upstream = await fetch(upstreamUrl, {
-      headers: {
-        "accept": "application/json,text/plain,*/*",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "referer": "https://quote.eastmoney.com/",
-        "user-agent": env.UPSTREAM_USER_AGENT || DEFAULT_UA,
-      },
+      headers: upstreamHeaders,
       cf: {
         cacheEverything: true,
         cacheTtl: 30,
@@ -128,6 +151,20 @@ function buildKlineUrl(secidMap, searchParams) {
     fields2: "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64",
     ut: "f057cbcbce2a86e2866ab8877db1d059",
     forcect: "1",
+  }).toString();
+  return upstream.toString();
+}
+
+function buildCommoditySpotUrl() {
+  const upstream = new URL(COMMODITY_SPOT_URL);
+  upstream.search = new URLSearchParams({
+    orderBy: "dm",
+    sort: "desc",
+    pageSize: "200",
+    pageIndex: "0",
+    token: COMMODITY_SPOT_TOKEN,
+    field: "dm,sc,name,p,zsjd,zde,zdf,f152,o,h,l,zjsj,vol,wp,np,ccl",
+    blockName: "callback",
   }).toString();
   return upstream.toString();
 }

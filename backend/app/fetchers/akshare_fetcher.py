@@ -26,7 +26,6 @@ EM_COMMODITY_MAP = {
     "COMEX黄金": {"symbol": "XAU", "name": "黄金", "name_en": "Gold", "unit": "USD/oz"},
     "COMEX白银": {"symbol": "XAG", "name": "白银", "name_en": "Silver", "unit": "USD/oz"},
     "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USD/lb"},
-    "NYMEX原油": {"symbol": "WTI", "name": "原油", "name_en": "Crude Oil", "unit": "USD/bbl"},
     "布伦特原油": {"symbol": "BRENT", "name": "布伦特原油", "name_en": "Brent Oil", "unit": "USD/bbl"},
     "天然气": {"symbol": "NATGAS", "name": "天然气", "name_en": "Natural Gas", "unit": "USD/MMBtu"},
     "玉米当月连续": {"symbol": "CORN", "name": "玉米", "name_en": "Corn", "unit": "USc/bu"},
@@ -37,7 +36,7 @@ EM_COMMODITY_MAP = {
 }
 
 # 优先展示的商品（按顺序）
-COMMODITY_PRIORITY = ["XAU", "XAG", "WTI", "BRENT", "NATGAS", "COPPER", "PORK", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE"]
+COMMODITY_PRIORITY = ["XAU", "XAG", "BRENT", "NATGAS", "COPPER", "PORK", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE"]
 GLOBAL_INDEX_CHART_CODES = {
     spec["symbol"]: spec["chart_code"] for spec in EM_GLOBAL_INDEX_FUTURES.values()
 }
@@ -229,49 +228,60 @@ class AKShareFetcher:
         return await asyncio.to_thread(self._fetch_global_index_daily_history, chart_code, days)
 
     async def fetch_global_commodities(self) -> list[dict]:
-        """Fetch global commodity futures from Eastmoney + domestic from Sina."""
-        try:
-            frame = await asyncio.to_thread(ak.futures_global_spot_em)
-            items = []
-            seen_symbols = set()
-            for _, row in frame.iterrows():
-                name = str(row.get("名称", "")).strip()
-                # Exact match on the map keys (these are the main contract rows)
-                spec = match_em_commodity_spec(name)
-                if spec is None or spec["symbol"] in seen_symbols:
-                    continue
-                price = to_float(row.get("最新价"))
-                if not price or price == 0:
-                    continue
-                seen_symbols.add(spec["symbol"])
-                prev = to_float(row.get("昨结"), default=price)
-                change = price - prev
-                change_pct = (change / prev * 100) if prev else 0.0
-                items.append({
-                    "symbol": spec["symbol"],
-                    "name": spec["name"],
-                    "name_en": spec["name_en"],
-                    "price": round(price, 4),
-                    "change": round(change, 4),
-                    "change_pct": round(change_pct, 2),
-                    "high": round(to_float(row.get("最高"), default=price), 4),
-                    "low": round(to_float(row.get("最低"), default=price), 4),
-                    "unit": spec["unit"],
-                })
-            # Add domestic commodities (pork etc.)
-            domestic = await self._fetch_sina_domestic_commodities()
-            seen_symbols = {item["symbol"] for item in items}
-            for d in domestic:
-                if d["symbol"] not in seen_symbols:
-                    items.append(d)
-            # Sort by priority
-            order = {s: i for i, s in enumerate(COMMODITY_PRIORITY)}
-            items.sort(key=lambda x: order.get(x["symbol"], 999))
-            await cache_set("commodities:em", items, ttl=settings.cache_ttl_commodity)
-            return items
-        except Exception as e:
-            print(f"[AKShare] fetch_global_commodities error: {e}")
-            return []
+        """Fetch global commodity futures: proxy first, then AKShare fallback."""
+        proxy_fetcher = EastmoneyProxyFetcher()
+        items: list[dict] = []
+
+        # Try Cloudflare proxy first (bypasses Eastmoney block)
+        if proxy_fetcher.enabled:
+            try:
+                items = await proxy_fetcher.fetch_global_commodities()
+            except Exception as e:
+                print(f"[AKShare] proxy fetch_global_commodities error: {e}")
+
+        # Fallback to direct AKShare if proxy returned nothing
+        if not items:
+            try:
+                frame = await asyncio.to_thread(ak.futures_global_spot_em)
+                seen_symbols: set[str] = set()
+                for _, row in frame.iterrows():
+                    name = str(row.get("名称", "")).strip()
+                    spec = match_em_commodity_spec(name)
+                    if spec is None or spec["symbol"] in seen_symbols:
+                        continue
+                    price = to_float(row.get("最新价"))
+                    if not price or price == 0:
+                        continue
+                    seen_symbols.add(spec["symbol"])
+                    prev = to_float(row.get("昨结"), default=price)
+                    change = price - prev
+                    change_pct = (change / prev * 100) if prev else 0.0
+                    items.append({
+                        "symbol": spec["symbol"],
+                        "name": spec["name"],
+                        "name_en": spec["name_en"],
+                        "price": round(price, 4),
+                        "change": round(change, 4),
+                        "change_pct": round(change_pct, 2),
+                        "high": round(to_float(row.get("最高"), default=price), 4),
+                        "low": round(to_float(row.get("最低"), default=price), 4),
+                        "unit": spec["unit"],
+                    })
+            except Exception as e:
+                print(f"[AKShare] fetch_global_commodities fallback error: {e}")
+
+        # Add domestic commodities (pork etc.) from Sina
+        domestic = await self._fetch_sina_domestic_commodities()
+        seen_symbols = {item["symbol"] for item in items}
+        for d in domestic:
+            if d["symbol"] not in seen_symbols:
+                items.append(d)
+
+        # Sort by priority
+        order = {s: i for i, s in enumerate(COMMODITY_PRIORITY)}
+        items.sort(key=lambda x: order.get(x["symbol"], 999))
+        await cache_set("commodities:em", items, ttl=settings.cache_ttl_commodity)
+        return items
 
     async def fetch_index_intraday(self, symbol: str) -> list[dict]:
         """Fetch 1-minute intraday data for A-share index from Sina.
@@ -304,9 +314,8 @@ class AKShareFetcher:
         SYMBOL_TO_SINA = {
             "XAU": "AU0",       # 沪金
             "XAG": "AG0",       # 沪银
-            "WTI": "SC0",       # 原油（上海国际能源）
             "COPPER": "CU0",    # 沪铜
-            "BRENT": "SC0",     # 布伦特用SC0近似
+            "BRENT": "SC0",     # 布伦特用上海原油SC0近似
             "NATGAS": "FU0",    # 燃料油近似天然气
             "PORK": "LH0",      # 生猪
         }
@@ -337,7 +346,7 @@ class AKShareFetcher:
     async def fetch_commodity_5d(self, symbol: str) -> list[dict]:
         """Fetch 5-day commodity chart using 15-min bars from Sina."""
         SYMBOL_TO_SINA = {
-            "XAU": "AU0", "XAG": "AG0", "WTI": "SC0", "COPPER": "CU0",
+            "XAU": "AU0", "XAG": "AG0", "COPPER": "CU0",
             "BRENT": "SC0", "NATGAS": "FU0", "PORK": "LH0",
         }
         sina_code = SYMBOL_TO_SINA.get(symbol)
