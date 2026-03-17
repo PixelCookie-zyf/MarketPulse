@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     cache_backend: Literal["auto", "redis", "memory"] = "auto"
     goldapi_key: str = ""
     alphavantage_key: str = ""
+    eastmoney_proxy_base_url: str = ""
+    eastmoney_proxy_token: str = ""
     cache_ttl_commodity: int = 1800   # 30 min (metals refresh every 15 min)
     cache_ttl_index: int = 7200       # 2 hours (global indices refresh every 1h)
     cache_ttl_sector: int = 600       # 10 min (sectors refresh every 3 min)

@@ -1,4 +1,9 @@
-from app.fetchers.akshare_fetcher import normalize_index_row, normalize_sector_row, normalize_ths_sector_row
+from app.fetchers.akshare_fetcher import (
+    match_em_commodity_spec,
+    normalize_index_row,
+    normalize_sector_row,
+    normalize_ths_sector_row,
+)
 from app.fetchers.base import build_sparkline
 from app.fetchers.alphavantage_fetcher import (
     AVCommoditySpec,
@@ -154,6 +159,13 @@ def test_normalize_ths_sector_row():
     }
 
 
+def test_match_em_commodity_spec_handles_contract_suffixes():
+    spec = match_em_commodity_spec("布伦特原油2708")
+
+    assert spec is not None
+    assert spec["symbol"] == "BRENT"
+
+
 def test_build_sparkline_uses_recent_numeric_values():
     assert build_sparkline([1, 2, "3.5", None, 4, 5, 6], limit=4) == [3.5, 4.0, 5.0, 6.0]
 
@@ -240,25 +252,21 @@ def test_scheduler_job_specs_reflect_free_tier_limits():
     assert specs["cn_indices"]["minutes"] == 1
     assert specs["cn_sectors"]["minutes"] == 3
     assert specs["gold_metals"]["minutes"] == 15
-    assert specs["global_indices"]["hours"] == 1
-    assert specs["stooq_commodities"]["hours"] == 1
+    assert specs["global_indices"]["minutes"] == 5
+    assert specs["em_commodities"]["minutes"] == 5
 
 
-async def test_refresh_cn_indices_uses_stooq_hk_source(monkeypatch):
+async def test_refresh_cn_indices_preserves_existing_global_groups(monkeypatch):
     async def fake_fetch_cn_indices(self):
         return [{"symbol": "sh000001", "name": "上证指数"}]
 
-    async def fake_fetch_hk_indices(self):
-        return [{"symbol": "HSI", "name": "恒生指数"}]
-
     async def fake_load_index_groups():
-        return {"us": [], "jp": [], "kr": [], "hk": [], "cn": []}
+        return {"us": [], "jp": [], "kr": [], "hk": [{"symbol": "HSI", "name": "恒生指数"}], "cn": []}
 
     async def fake_cache_set(*args, **kwargs):
         return None
 
     monkeypatch.setattr("app.fetchers.akshare_fetcher.AKShareFetcher.fetch_cn_indices", fake_fetch_cn_indices)
-    monkeypatch.setattr("app.fetchers.stooq_fetcher.StooqFetcher.fetch_hk_indices", fake_fetch_hk_indices)
     monkeypatch.setattr("app.scheduler.cache_set", fake_cache_set)
     monkeypatch.setattr("app.scheduler._load_index_groups", fake_load_index_groups)
 

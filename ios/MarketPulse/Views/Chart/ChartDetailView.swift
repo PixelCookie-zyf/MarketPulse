@@ -130,7 +130,7 @@ struct ChartDetailView: View {
                 .frame(height: 280)
                 .frame(maxWidth: .infinity)
         } else if viewModel.chartPoints.isEmpty {
-            Text("暂无分时数据")
+            Text(emptyStateText)
                 .foregroundStyle(AppTheme.Colors.secondaryText)
                 .frame(height: 280)
                 .frame(maxWidth: .infinity)
@@ -258,6 +258,13 @@ struct ChartDetailView: View {
             .frame(height: 280)
             .padding(.vertical, 8)
         }
+    }
+
+    private var emptyStateText: String {
+        if viewModel.isGlobalIndex {
+            return "全球指数图表数据暂不可用"
+        }
+        return viewModel.selectedPeriod == .fiveDay ? "暂无 5 日数据" : "暂无分时数据"
     }
 
     // MARK: - Stats

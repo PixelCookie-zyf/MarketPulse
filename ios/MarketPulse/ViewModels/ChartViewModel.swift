@@ -4,7 +4,7 @@ import Foundation
 final class ChartViewModel: ObservableObject {
     @Published var chartPoints: [ChartPoint] = []
     @Published var isLoading = false
-    @Published var selectedPeriod: ChartPeriod = .oneDay
+    @Published var selectedPeriod: ChartPeriod
 
     enum ChartPeriod: String, CaseIterable {
         case oneDay = "1d"
@@ -20,10 +20,15 @@ final class ChartViewModel: ObservableObject {
 
     let symbol: String
     let name: String
+    let isGlobalIndex: Bool
+
+    private static let globalIndexSymbols: Set<String> = ["IXIC", "SPX", "DJI", "HSI", "N225", "KOSPI"]
 
     init(symbol: String, name: String) {
         self.symbol = symbol
         self.name = name
+        self.isGlobalIndex = Self.globalIndexSymbols.contains(symbol)
+        self.selectedPeriod = self.isGlobalIndex ? .fiveDay : .oneDay
     }
 
     func loadChart() async {

@@ -33,7 +33,7 @@ COMBINED_COMMODITY_SYMBOLS = (
     "SUGAR",
     "COFFEE",
 )
-STABLE_COMMODITY_CACHE_KEY = "commodities:stooq"
+STABLE_COMMODITY_CACHE_KEY = "commodities:em"
 
 
 def build_job_specs() -> list[dict]:

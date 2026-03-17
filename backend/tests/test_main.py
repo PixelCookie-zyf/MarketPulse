@@ -142,7 +142,7 @@ async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order()
         ],
     )
     await cache_set(
-        "commodities:stooq",
+        "commodities:em",
         [
             {"symbol": "COFFEE", "name": "咖啡"},
             {"symbol": "BRENT", "name": "布伦特原油"},
@@ -157,5 +157,45 @@ async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order()
     body = response.json()
     assert response.status_code == 200
     assert [item["symbol"] for item in body["data"]] == ["XAU", "XAG", "WTI", "BRENT", "COFFEE"]
+
+    await close_cache()
+
+
+async def test_chart_endpoint_routes_global_indices_to_dedicated_fetcher(monkeypatch):
+    await close_cache()
+    await init_cache()
+
+    called = {"global": 0, "commodity": 0}
+
+    async def fake_fetch_global_index_chart(self, symbol: str, period: str):
+        called["global"] += 1
+        return [{"time": "2026-03-17 09:30", "price": 24706.4, "volume": 0.0}]
+
+    async def fake_fetch_commodity_intraday(self, symbol: str):
+        called["commodity"] += 1
+        return [{"time": "00:00", "price": 0.0, "volume": 0.0}]
+
+    monkeypatch.setattr(
+        "app.fetchers.akshare_fetcher.AKShareFetcher.fetch_global_index_chart",
+        fake_fetch_global_index_chart,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.fetchers.akshare_fetcher.AKShareFetcher.fetch_commodity_intraday",
+        fake_fetch_commodity_intraday,
+        raising=False,
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/api/v1/chart/intraday",
+            params={"symbol": "IXIC", "period": "1d"},
+        )
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["data"] == [{"time": "2026-03-17 09:30", "price": 24706.4, "volume": 0.0}]
+    assert called == {"global": 1, "commodity": 0}
 
     await close_cache()

@@ -1,0 +1,7 @@
+name = "marketpulse-eastmoney-proxy"
+main = "eastmoney-proxy-worker.js"
+compatibility_date = "2026-03-17"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "http://47.102.109.227:8000"

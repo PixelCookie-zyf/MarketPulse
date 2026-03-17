@@ -7,15 +7,16 @@ import akshare as ak
 from app.cache import cache_set
 from app.config import settings
 from app.fetchers.base import build_sparkline, to_float
+from app.fetchers.eastmoney_proxy_fetcher import EastmoneyProxyFetcher
 
 CN_INDEX_CODES = ("sh000001", "sh000300", "sz399001", "sz399006", "sh000688")
 
 # 全球指数 — 从 futures_global_spot_em 获取（该接口不被封）
 # 用指数期货价格代替实际指数（走势一致）
 EM_GLOBAL_INDEX_FUTURES = {
-    "小型纳指当月连续": {"symbol": "IXIC", "name": "纳斯达克", "region": "us"},
-    "小型标普当月连续": {"symbol": "SPX", "name": "标普500", "region": "us"},
-    "小型道指当月连续": {"symbol": "DJI", "name": "道琼斯", "region": "us"},
+    "小型纳指当月连续": {"symbol": "IXIC", "name": "纳斯达克", "region": "us", "chart_code": "NQ00Y"},
+    "小型标普当月连续": {"symbol": "SPX", "name": "标普500", "region": "us", "chart_code": "ES00Y"},
+    "小型道指当月连续": {"symbol": "DJI", "name": "道琼斯", "region": "us", "chart_code": "YM00Y"},
 }
 # 这些指数没有对应期货，暂不支持：日经225、韩国KOSPI、恒生指数
 # 后续可通过添加代理或其他数据源解决
@@ -37,6 +38,9 @@ EM_COMMODITY_MAP = {
 
 # 优先展示的商品（按顺序）
 COMMODITY_PRIORITY = ["XAU", "XAG", "WTI", "BRENT", "NATGAS", "COPPER", "PORK", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE"]
+GLOBAL_INDEX_CHART_CODES = {
+    spec["symbol"]: spec["chart_code"] for spec in EM_GLOBAL_INDEX_FUTURES.values()
+}
 
 
 def normalize_index_row(row: dict) -> dict:
@@ -69,6 +73,17 @@ def normalize_ths_sector_row(row: dict) -> dict:
         "turnover": to_float(row.get("总成交额")),
         "leading_stock": str(row.get("领涨股", "") or ""),
     }
+
+
+def match_em_commodity_spec(name: str) -> dict | None:
+    exact = EM_COMMODITY_MAP.get(name)
+    if exact is not None:
+        return exact
+
+    for base_name, spec in EM_COMMODITY_MAP.items():
+        if str(name).startswith(base_name):
+            return spec
+    return None
 
 
 class AKShareFetcher:
@@ -183,10 +198,28 @@ class AKShareFetcher:
             })
 
         result = {"us": us, "jp": [], "kr": [], "hk": []}
+        proxy_fetcher = EastmoneyProxyFetcher()
+        regional_groups = await proxy_fetcher.fetch_regional_global_indices()
+        for key, items in regional_groups.items():
+            if items:
+                result[key] = items
         for key, items in result.items():
             if items:
                 await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
         return result
+
+    async def fetch_global_index_chart(self, symbol: str, period: str) -> list[dict]:
+        proxy_fetcher = EastmoneyProxyFetcher()
+        proxy_items = await proxy_fetcher.fetch_global_index_chart(symbol, period)
+        if proxy_items:
+            return proxy_items
+
+        chart_code = GLOBAL_INDEX_CHART_CODES.get(symbol)
+        if chart_code is None:
+            return []
+
+        days = 5 if period == "5d" else 1
+        return await asyncio.to_thread(self._fetch_global_index_daily_history, chart_code, days)
 
     async def fetch_global_commodities(self) -> list[dict]:
         """Fetch global commodity futures from Eastmoney + domestic from Sina."""
@@ -197,7 +230,7 @@ class AKShareFetcher:
             for _, row in frame.iterrows():
                 name = str(row.get("名称", "")).strip()
                 # Exact match on the map keys (these are the main contract rows)
-                spec = EM_COMMODITY_MAP.get(name)
+                spec = match_em_commodity_spec(name)
                 if spec is None or spec["symbol"] in seen_symbols:
                     continue
                 price = to_float(row.get("最新价"))
@@ -373,4 +406,22 @@ class AKShareFetcher:
             close_column = "close" if "close" in frame.columns else "收盘"
             return build_sparkline(frame[close_column].tolist(), limit=7)
         except Exception:
+            return []
+
+    def _fetch_global_index_daily_history(self, chart_code: str, days: int) -> list[dict]:
+        try:
+            frame = ak.futures_global_hist_em(symbol=chart_code)
+            if frame.empty:
+                return []
+            recent = frame.tail(days)
+            return [
+                {
+                    "time": str(row.get("日期", "")),
+                    "price": round(to_float(row.get("最新价", 0)), 4),
+                    "volume": to_float(row.get("总量", 0)),
+                }
+                for _, row in recent.iterrows()
+            ]
+        except Exception as e:
+            print(f"[AKShare] fetch_global_index_daily_history error for {chart_code}: {e}")
             return []

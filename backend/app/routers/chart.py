@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 
 from app.cache import cache_get, cache_set
 from app.fetchers.akshare_fetcher import AKShareFetcher
+from app.fetchers.eastmoney_proxy_fetcher import is_global_index_symbol
 
 router = APIRouter(prefix="/api/v1", tags=["chart"])
 
@@ -27,6 +28,8 @@ async def get_intraday(
             data = await fetcher.fetch_index_daily_history(symbol, days=5)
         else:
             data = await fetcher.fetch_index_intraday(symbol)
+    elif is_global_index_symbol(symbol):
+        data = await fetcher.fetch_global_index_chart(symbol, period)
     else:
         # Commodity or global index futures — all use Sina futures
         if period == "5d":
