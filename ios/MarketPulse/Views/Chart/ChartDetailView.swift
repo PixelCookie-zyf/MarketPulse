@@ -20,7 +20,8 @@ struct ChartDetailView: View {
     }
 
     private var isUp: Bool { change >= 0 }
-    private var accentColor: Color { AppTheme.Colors.changeColor(isUp: isUp) }
+    private var changeColor: Color { AppTheme.Colors.changeColor(isUp: isUp) }
+    private var chartLineColor: Color { Color(hex: 0x3B82F6) } // Blue
 
     /// The point currently under the crosshair, or nil.
     private var selectedPoint: ChartPoint? {
@@ -80,12 +81,11 @@ struct ChartDetailView: View {
                 HStack(spacing: 8) {
                     Text(String(format: "%+.2f", change))
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(accentColor)
+                        .foregroundStyle(changeColor)
                     Text(String(format: "(%+.2f%%)", changePct))
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(accentColor)
+                        .foregroundStyle(changeColor)
                 }
-                .shadow(color: accentColor.opacity(0.3), radius: 4)
             }
         }
     }
@@ -109,7 +109,7 @@ struct ChartDetailView: View {
                         .padding(.horizontal, 20)
                         .background(
                             viewModel.selectedPeriod == period
-                                ? accentColor.opacity(0.15)
+                                ? chartLineColor.opacity(0.15)
                                 : Color.clear
                         )
                         .clipShape(Capsule())
@@ -149,7 +149,7 @@ struct ChartDetailView: View {
                         x: .value("Time", index),
                         y: .value("Price", point.price)
                     )
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(chartLineColor)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .interpolationMethod(.catmullRom)
 
@@ -160,7 +160,7 @@ struct ChartDetailView: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [accentColor.opacity(0.2), accentColor.opacity(0.02)],
+                            colors: [chartLineColor.opacity(0.2), chartLineColor.opacity(0.02)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -187,7 +187,7 @@ struct ChartDetailView: View {
                     )
                     .symbol(Circle())
                     .symbolSize(60)
-                    .foregroundStyle(accentColor)
+                    .foregroundStyle(chartLineColor)
 
                     // Price label on Y axis
                     PointMark(
@@ -202,7 +202,7 @@ struct ChartDetailView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
-                            .background(accentColor)
+                            .background(chartLineColor)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
 
