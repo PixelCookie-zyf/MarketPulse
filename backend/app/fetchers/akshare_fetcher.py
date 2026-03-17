@@ -149,17 +149,24 @@ class AKShareFetcher:
                 print(f"[AKShare] domestic commodity {sina_code} error: {e}")
         return items
 
+    # Market symbol → Eastmoney hist code
+    SYM_TO_EM_HIST = {
+        "IXIC": "NDX", "SPX": "SPX", "DJI": "DJIA",
+        "N225": "N225", "KOSPI": "KS11", "HSI": "HSI",
+    }
+
     async def fetch_global_indices(self) -> dict[str, list[dict]]:
-        """Fetch global indices from Eastmoney (index_global_spot_em)."""
+        """Fetch global indices from Eastmoney (index_global_spot_em) with sparklines."""
         try:
             frame = await asyncio.to_thread(ak.index_global_spot_em)
-            us, jp, kr, hk = [], [], [], []
+            # First pass: collect items
+            all_items: list[dict] = []
             for _, row in frame.iterrows():
                 name = str(row.get("名称", "")).strip()
                 spec = EM_GLOBAL_INDEX_MAP.get(name)
                 if spec is None:
                     continue
-                item = {
+                all_items.append({
                     "symbol": spec["symbol"],
                     "name": spec["name"],
                     "value": round(to_float(row.get("最新价")), 4),
@@ -169,8 +176,17 @@ class AKShareFetcher:
                     "low": round(to_float(row.get("最新价")), 4),
                     "volume": 0,
                     "sparkline": [],
-                }
-                sym = spec["symbol"]
+                })
+
+            # Fetch sparklines in parallel
+            sparkline_map = await self._fetch_global_sparklines([i["symbol"] for i in all_items])
+            for item in all_items:
+                item["sparkline"] = sparkline_map.get(item["symbol"], [])
+
+            # Group by region
+            us, jp, kr, hk = [], [], [], []
+            for item in all_items:
+                sym = item["symbol"]
                 if sym in ("IXIC", "SPX", "DJI"):
                     us.append(item)
                 elif sym == "N225":
@@ -179,6 +195,7 @@ class AKShareFetcher:
                     kr.append(item)
                 elif sym == "HSI":
                     hk.append(item)
+
             result = {"us": us, "jp": jp, "kr": kr, "hk": hk}
             for key, items in result.items():
                 await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
@@ -187,14 +204,35 @@ class AKShareFetcher:
             print(f"[AKShare] fetch_global_indices error: {e}")
             return {"us": [], "jp": [], "kr": [], "hk": []}
 
+    async def _fetch_global_sparklines(self, symbols: list[str]) -> dict[str, list[float]]:
+        """Fetch 7-day sparkline data for global indices."""
+        results: dict[str, list[float]] = {}
+        tasks = [asyncio.to_thread(self._fetch_global_hist, sym) for sym in symbols]
+        histories = await asyncio.gather(*tasks, return_exceptions=True)
+        for sym, history in zip(symbols, histories):
+            if isinstance(history, list) and history:
+                results[sym] = history
+        return results
+
+    def _fetch_global_hist(self, symbol: str) -> list[float]:
+        """Fetch recent daily closes for a global index from Eastmoney."""
+        em_code = self.SYM_TO_EM_HIST.get(symbol)
+        if not em_code:
+            return []
+        try:
+            frame = ak.index_global_hist_em(symbol=em_code)
+            if frame.empty:
+                return []
+            close_col = "收盘" if "收盘" in frame.columns else "close"
+            closes = frame[close_col].tolist()
+            return build_sparkline(closes, limit=7)
+        except Exception as e:
+            print(f"[AKShare] _fetch_global_hist error for {symbol}: {e}")
+            return []
+
     async def fetch_global_index_chart(self, symbol: str, days: int = 5) -> list[dict]:
         """Fetch daily history for a global index from Eastmoney."""
-        # Map market symbol to Eastmoney code
-        SYM_TO_EM = {
-            "IXIC": "NDX", "SPX": "SPX", "DJI": "DJIA",
-            "N225": "N225", "KOSPI": "KS11", "HSI": "HSI",
-        }
-        em_code = SYM_TO_EM.get(symbol)
+        em_code = self.SYM_TO_EM_HIST.get(symbol)
         if not em_code:
             return []
         try:
