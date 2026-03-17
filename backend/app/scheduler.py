@@ -36,17 +36,6 @@ COMBINED_COMMODITY_SYMBOLS = (
 STABLE_COMMODITY_CACHE_KEY = "commodities:stooq"
 
 
-async def self_ping() -> None:
-    """Ping own /health endpoint to keep Render free tier from sleeping."""
-    import httpx
-
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.get("https://marketpulse-t9jx.onrender.com/health")
-    except Exception:
-        pass
-
-
 def build_job_specs() -> list[dict]:
     return [
         {"id": "cn_indices", "minutes": 1, "func": refresh_cn_indices},
@@ -54,7 +43,6 @@ def build_job_specs() -> list[dict]:
         {"id": "gold_metals", "minutes": 15, "func": refresh_gold_metals},
         {"id": "global_indices", "hours": 1, "func": refresh_global_indices},
         {"id": "stooq_commodities", "hours": 1, "func": refresh_stooq_commodities},
-        {"id": "self_ping", "minutes": 10, "func": self_ping},
     ]
 
 

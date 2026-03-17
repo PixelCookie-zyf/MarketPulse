@@ -54,11 +54,12 @@ actor APIService: MarketDataServicing {
 }
 
 private extension APIService {
+    // TODO: Replace with your Alibaba Cloud server IP or domain
     static var defaultBaseURL: URL {
         #if DEBUG
-        return URL(string: "https://marketpulse-t9jx.onrender.com/api/v1")!
+        return URL(string: "http://YOUR_SERVER_IP:8000/api/v1")!
         #else
-        return URL(string: "https://marketpulse-t9jx.onrender.com/api/v1")!
+        return URL(string: "http://YOUR_SERVER_IP:8000/api/v1")!
         #endif
     }
 }
