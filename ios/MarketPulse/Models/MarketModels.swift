@@ -136,3 +136,18 @@ struct SectorItem: Codable, Equatable, Identifiable {
 
     var isUp: Bool { changePct >= 0 }
 }
+
+// MARK: - Chart Data
+
+struct ChartPoint: Codable, Equatable {
+    let time: String
+    let price: Double
+    let volume: Double?
+}
+
+struct ChartResponse: Codable {
+    let timestamp: String
+    let symbol: String
+    let period: String
+    let data: [ChartPoint]
+}

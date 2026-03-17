@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.cache import close_cache, init_cache
 from app.config import settings
-from app.routers import commodities, indices, overview, sectors
+from app.routers import chart, commodities, indices, overview, sectors
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(chart.router)
 app.include_router(commodities.router)
 app.include_router(indices.router)
 app.include_router(sectors.router)

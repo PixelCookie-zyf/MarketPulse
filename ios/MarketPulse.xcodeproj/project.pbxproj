@@ -10,6 +10,7 @@
 		0331B82278FE01D04CD019F2 /* OverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141EAB2F06B1000D08E17842 /* OverviewView.swift */; };
 		03D9873295CDB5CB9347476E /* MarketViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4619248677659C0D0AEAAD5 /* MarketViewModel.swift */; };
 		05798079F951F69158D1A515 /* IndicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9111257C4A6F488B5B7D355D /* IndicesView.swift */; };
+		11574382CF51624FCFA1414C /* ChartViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817CC3B22C5B77952BF74639 /* ChartViewModel.swift */; };
 		1338F88BE502C169461ACC77 /* SectorsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5019F7517599E1D54D7682BF /* SectorsListView.swift */; };
 		16F45FA0658A394271E2F54F /* ChangeLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA90B2F9093FCB1B58B74DB9 /* ChangeLabel.swift */; };
 		1A21D2BC5D71566AE6F75A05 /* MarketPulseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92599BA519F3DD69D49EB5FA /* MarketPulseApp.swift */; };
@@ -21,6 +22,7 @@
 		50F9B96ECE69B3232647F684 /* SparklineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652061DE22131F76FAB4CC21 /* SparklineView.swift */; };
 		6CA041067B000F8601336889 /* MarketPulseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6966DDC945EB4C3030A2A17 /* MarketPulseTests.swift */; };
 		716DB86E3262A4C067C6B01E /* MarketModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2077E4E025FF9E4165D3FC4D /* MarketModels.swift */; };
+		764F76319266AB7263F15FE3 /* ChartDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB5BCE6BD0B726D92B3E533 /* ChartDetailView.swift */; };
 		A77D1C4EB1333EAEDC05EB80 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A1E7AF2F3F88DD4FD007D4 /* AppTheme.swift */; };
 		BC190BD90496EF6358ACFB04 /* LocalCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154A974F5B8B4B17B00B815E /* LocalCache.swift */; };
 		BD542486CBF53D822980636C /* CommodityListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E994A87CAD5089BD0721822 /* CommodityListView.swift */; };
@@ -50,7 +52,9 @@
 		5019F7517599E1D54D7682BF /* SectorsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectorsListView.swift; sourceTree = "<group>"; };
 		5895BD998445F43795BE419A /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		652061DE22131F76FAB4CC21 /* SparklineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparklineView.swift; sourceTree = "<group>"; };
+		7CB5BCE6BD0B726D92B3E533 /* ChartDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartDetailView.swift; sourceTree = "<group>"; };
 		7E994A87CAD5089BD0721822 /* CommodityListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommodityListView.swift; sourceTree = "<group>"; };
+		817CC3B22C5B77952BF74639 /* ChartViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartViewModel.swift; sourceTree = "<group>"; };
 		8847BE31B7CAC8FE4AA81435 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9111257C4A6F488B5B7D355D /* IndicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndicesView.swift; sourceTree = "<group>"; };
 		92599BA519F3DD69D49EB5FA /* MarketPulseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketPulseApp.swift; sourceTree = "<group>"; };
@@ -110,9 +114,18 @@
 			);
 			sourceTree = "<group>";
 		};
+		7EAB4E29CA0BCCFA85A65A1E /* Chart */ = {
+			isa = PBXGroup;
+			children = (
+				7CB5BCE6BD0B726D92B3E533 /* ChartDetailView.swift */,
+			);
+			path = Chart;
+			sourceTree = "<group>";
+		};
 		837B3931BAB999DB4072744A /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				817CC3B22C5B77952BF74639 /* ChartViewModel.swift */,
 				A4619248677659C0D0AEAAD5 /* MarketViewModel.swift */,
 			);
 			path = ViewModels;
@@ -148,6 +161,7 @@
 			isa = PBXGroup;
 			children = (
 				A2274C118CCE70A7198B2F98 /* ContentView.swift */,
+				7EAB4E29CA0BCCFA85A65A1E /* Chart */,
 				22F06B810BADA9A0B80CAD3E /* Commodity */,
 				A2F8D425FCC9EE4AA97E70FD /* Indices */,
 				9BE621D7B67A0ADB0DCFB774 /* Overview */,
@@ -323,6 +337,8 @@
 				EA9477D0A7A315F86CF6364C /* AppSettings.swift in Sources */,
 				A77D1C4EB1333EAEDC05EB80 /* AppTheme.swift in Sources */,
 				16F45FA0658A394271E2F54F /* ChangeLabel.swift in Sources */,
+				764F76319266AB7263F15FE3 /* ChartDetailView.swift in Sources */,
+				11574382CF51624FCFA1414C /* ChartViewModel.swift in Sources */,
 				CCCB95BFC07AAC19EDA5EA5B /* CommodityCardView.swift in Sources */,
 				BD542486CBF53D822980636C /* CommodityListView.swift in Sources */,
 				232855CAFEC685AEEC516D1D /* ContentView.swift in Sources */,
