@@ -5,8 +5,6 @@ final class AppSettings: ObservableObject {
     @AppStorage("appTheme") var appTheme: AppThemeMode = .system
     @AppStorage("appLanguage") var appLanguage: AppLanguage = .chinese
     @AppStorage("currencyUnit") var currencyUnit: CurrencyUnit = .usd
-    @AppStorage("priceAlertEnabled") var priceAlertEnabled: Bool = false
-    @AppStorage("priceAlertThreshold") var priceAlertThreshold: Double = 3.0
 }
 
 // MARK: - Theme Mode

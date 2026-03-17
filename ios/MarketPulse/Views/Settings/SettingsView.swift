@@ -8,7 +8,6 @@ struct SettingsView: View {
             List {
                 appearanceSection
                 dataSection
-                notificationSection
                 aboutSection
             }
             .listStyle(.insetGrouped)
@@ -51,31 +50,6 @@ struct SettingsView: View {
             }
         } header: {
             Text("数据")
-                .foregroundStyle(AppTheme.Colors.secondaryText)
-        }
-    }
-
-    // MARK: - Notifications
-
-    private var notificationSection: some View {
-        Section {
-            Toggle("价格提醒", isOn: $appSettings.priceAlertEnabled)
-                .tint(AppTheme.Colors.accent)
-
-            if appSettings.priceAlertEnabled {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("涨跌幅阈值: \(appSettings.priceAlertThreshold, specifier: "%.0f")%")
-                        .foregroundStyle(AppTheme.Colors.primaryText)
-                    Slider(
-                        value: $appSettings.priceAlertThreshold,
-                        in: 1...10,
-                        step: 1
-                    )
-                    .tint(AppTheme.Colors.accent)
-                }
-            }
-        } header: {
-            Text("通知")
                 .foregroundStyle(AppTheme.Colors.secondaryText)
         }
     }
