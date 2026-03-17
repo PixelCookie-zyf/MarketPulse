@@ -48,11 +48,9 @@ def build_job_specs() -> list[dict]:
 
 async def refresh_cn_indices() -> dict[str, list]:
     akshare = AKShareFetcher()
-    stooq = StooqFetcher()
-    cn, hk = await asyncio.gather(akshare.fetch_cn_indices(), stooq.fetch_hk_indices())
+    cn = await akshare.fetch_cn_indices()
     groups = await _load_index_groups()
     groups["cn"] = cn
-    groups["hk"] = hk
     await cache_set("indices:groups", groups, ttl=_INDEX_GROUP_TTL)
     return groups
 
@@ -70,16 +68,16 @@ async def refresh_gold_metals() -> list[dict]:
 
 
 async def refresh_global_indices() -> dict[str, list]:
-    stooq = StooqFetcher()
-    us, jp, kr = await asyncio.gather(
-        stooq.fetch_us_indices(),
-        stooq.fetch_jp_indices(),
-        stooq.fetch_kr_indices(),
-    )
+    akshare = AKShareFetcher()
+    result = await akshare.fetch_global_indices()
     groups = await _load_index_groups()
-    groups["us"] = us
-    groups["jp"] = jp
-    groups["kr"] = kr
+    groups["us"] = result.get("us", [])
+    groups["jp"] = result.get("jp", [])
+    groups["kr"] = result.get("kr", [])
+    # Also update HK from global if available
+    hk_from_global = result.get("hk", [])
+    if hk_from_global:
+        groups["hk"] = hk_from_global
     await cache_set("indices:groups", groups, ttl=_INDEX_GROUP_TTL)
     return groups
 

@@ -3,23 +3,18 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Query
 
 from app.cache import cache_get, cache_set
-from app.fetchers.akshare_fetcher import AKShareFetcher
-from app.fetchers.stooq_fetcher import MARKET_TO_STOOQ, StooqFetcher
+from app.fetchers.akshare_fetcher import AKShareFetcher, EM_GLOBAL_INDEX_MAP
 
 router = APIRouter(prefix="/api/v1", tags=["chart"])
 
-# Commodity symbols (for routing)
-COMMODITY_SYMBOLS = {
-    "XAU", "XAG", "WTI", "BRENT", "NATGAS", "COPPER",
-    "PORK", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE",
-}
+# Known global index symbols
+GLOBAL_INDEX_SYMBOLS = {spec["symbol"] for spec in EM_GLOBAL_INDEX_MAP.values()}
 
 
 def _classify_symbol(symbol: str) -> str:
-    """Classify symbol into: cn_index, global_index, or commodity."""
     if symbol.startswith("sh") or symbol.startswith("sz"):
         return "cn_index"
-    if symbol in MARKET_TO_STOOQ:
+    if symbol in GLOBAL_INDEX_SYMBOLS:
         return "global_index"
     return "commodity"
 
@@ -34,24 +29,21 @@ async def get_intraday(
     if cached:
         return {"timestamp": datetime.now(timezone.utc).isoformat(), "symbol": symbol, "period": period, "data": cached}
 
-    kind = _classify_symbol(symbol)
+    fetcher = AKShareFetcher()
     data: list[dict] = []
+    kind = _classify_symbol(symbol)
 
     if kind == "cn_index":
-        fetcher = AKShareFetcher()
         if period == "5d":
             data = await fetcher.fetch_index_daily_history(symbol, days=5)
         else:
             data = await fetcher.fetch_index_intraday(symbol)
 
     elif kind == "global_index":
-        stooq = StooqFetcher()
-        # Global indices: use Stooq daily history for both 1d and 5d
         days = 5 if period == "5d" else 1
-        data = await stooq.fetch_global_index_chart(symbol, days=days)
+        data = await fetcher.fetch_global_index_chart(symbol, days=days)
 
     else:  # commodity
-        fetcher = AKShareFetcher()
         if period == "5d":
             data = await fetcher.fetch_commodity_5d(symbol)
         else:
