@@ -55,3 +55,15 @@ async def root() -> dict:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/debug/global-indices")
+async def debug_global_indices() -> dict:
+    import akshare as ak
+    import traceback
+    try:
+        df = ak.index_global_spot_em()
+        names = df["名称"].tolist()[:10]
+        return {"ok": True, "version": ak.__version__, "names": names, "rows": len(df)}
+    except Exception as e:
+        return {"ok": False, "version": getattr(ak, "__version__", "?"), "error": str(e), "trace": traceback.format_exc()}
