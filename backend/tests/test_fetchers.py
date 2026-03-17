@@ -1,10 +1,17 @@
+import math
+
+import pandas as pd
+
 from app.fetchers.akshare_fetcher import (
+    AKShareFetcher,
+    EM_GLOBAL_INDEX_FUTURES,
     match_em_commodity_spec,
     normalize_index_row,
     normalize_sector_row,
     normalize_ths_sector_row,
 )
-from app.fetchers.base import build_sparkline
+from app.fetchers.base import build_sparkline, to_float
+from app.fetchers.eastmoney_proxy_fetcher import ProxyIndexSpec, extract_proxy_global_index_item
 from app.fetchers.alphavantage_fetcher import (
     AVCommoditySpec,
     AVQuoteSpec,
@@ -166,8 +173,73 @@ def test_match_em_commodity_spec_handles_contract_suffixes():
     assert spec["symbol"] == "BRENT"
 
 
+async def test_fetch_global_commodities_ignores_non_finite_contract_rows(monkeypatch):
+    frame = pd.DataFrame(
+        [
+            {"名称": "COMEX黄金2504", "最新价": math.nan, "昨结": math.nan, "最高": math.nan, "最低": math.nan},
+            {"名称": "COMEX黄金", "最新价": 5020.8, "昨结": 5002.2, "最高": 5049.4, "最低": 4994.8},
+        ]
+    )
+
+    async def fake_domestic(self):
+        return []
+
+    async def fake_cache_set(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.fetchers.akshare_fetcher.ak.futures_global_spot_em", lambda: frame)
+    monkeypatch.setattr("app.fetchers.akshare_fetcher.AKShareFetcher._fetch_sina_domestic_commodities", fake_domestic)
+    monkeypatch.setattr("app.fetchers.akshare_fetcher.cache_set", fake_cache_set)
+
+    items = await AKShareFetcher().fetch_global_commodities()
+
+    assert items == [
+        {
+            "symbol": "XAU",
+            "name": "黄金",
+            "name_en": "Gold",
+            "price": 5020.8,
+            "change": 18.6,
+            "change_pct": 0.37,
+            "high": 5049.4,
+            "low": 4994.8,
+            "unit": "USD/oz",
+        }
+    ]
+
+
 def test_build_sparkline_uses_recent_numeric_values():
     assert build_sparkline([1, 2, "3.5", None, 4, 5, 6], limit=4) == [3.5, 4.0, 5.0, 6.0]
+
+
+def test_to_float_replaces_nan_with_default():
+    assert to_float(float("nan"), default=0.0) == 0.0
+
+
+def test_extract_proxy_global_index_item_keeps_sparkline():
+    spec = ProxyIndexSpec(upstream_code="DJIA", symbol="DJI", name="道琼斯", region="us")
+
+    result = extract_proxy_global_index_item(
+        {"f2": "4234500", "f4": "12500", "f3": "29", "f15": "4240100", "f16": "4212200", "f6": "0"},
+        spec,
+        sparkline=[41980.0, 42110.0, 42345.0],
+    )
+
+    assert result == {
+        "symbol": "DJI",
+        "name": "道琼斯",
+        "value": 42345.0,
+        "change": 125.0,
+        "change_pct": 0.29,
+        "high": 42401.0,
+        "low": 42122.0,
+        "volume": 0.0,
+        "sparkline": [41980.0, 42110.0, 42345.0],
+    }
+
+
+def test_global_index_futures_define_chart_codes():
+    assert {spec["chart_code"] for spec in EM_GLOBAL_INDEX_FUTURES.values()} == {"NQ00Y", "ES00Y", "YM00Y"}
 
 
 def test_extract_stooq_index_item_maps_quote_and_sparkline():

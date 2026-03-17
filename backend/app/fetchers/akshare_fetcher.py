@@ -165,14 +165,26 @@ class AKShareFetcher:
         return items
 
     async def fetch_global_indices(self) -> dict[str, list[dict]]:
-        """Fetch global indices from futures_global_spot_em (this endpoint is NOT blocked)."""
+        """Fetch global indices from proxy when available, otherwise fall back to futures."""
+        proxy_fetcher = EastmoneyProxyFetcher()
+        if proxy_fetcher.enabled:
+            try:
+                result = await proxy_fetcher.fetch_global_indices()
+                if any(result.get(key) for key in ("us", "jp", "kr", "hk")):
+                    for key, items in result.items():
+                        if items:
+                            await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
+                    return result
+            except Exception as e:
+                print(f"[AKShare] proxy fetch_global_indices error: {e}")
+
         try:
-            # Reuse the same futures data we already fetch for commodities
             frame = await asyncio.to_thread(ak.futures_global_spot_em)
         except Exception as e:
             print(f"[AKShare] fetch_global_indices error: {e}")
             return {"us": [], "jp": [], "kr": [], "hk": []}
 
+        sparkline_map = await self._fetch_global_future_sparkline_map()
         us = []
         for _, row in frame.iterrows():
             name = str(row.get("名称", "")).strip()
@@ -194,15 +206,10 @@ class AKShareFetcher:
                 "high": round(to_float(row.get("最高"), default=price), 4),
                 "low": round(to_float(row.get("最低"), default=price), 4),
                 "volume": 0,
-                "sparkline": [],
+                "sparkline": sparkline_map.get(spec["symbol"], []),
             })
 
         result = {"us": us, "jp": [], "kr": [], "hk": []}
-        proxy_fetcher = EastmoneyProxyFetcher()
-        regional_groups = await proxy_fetcher.fetch_regional_global_indices()
-        for key, items in regional_groups.items():
-            if items:
-                result[key] = items
         for key, items in result.items():
             if items:
                 await cache_set(f"indices:{key}", items, ttl=settings.cache_ttl_index)
@@ -425,3 +432,28 @@ class AKShareFetcher:
         except Exception as e:
             print(f"[AKShare] fetch_global_index_daily_history error for {chart_code}: {e}")
             return []
+
+    async def _fetch_global_future_sparkline_map(self) -> dict[str, list[float]]:
+        tasks = [
+            asyncio.to_thread(self._fetch_global_future_history, spec["symbol"], spec["chart_code"])
+            for spec in EM_GLOBAL_INDEX_FUTURES.values()
+        ]
+        histories = await asyncio.gather(*tasks, return_exceptions=True)
+        results: dict[str, list[float]] = {}
+        for history in histories:
+            if isinstance(history, tuple):
+                symbol, points = history
+                if points:
+                    results[symbol] = points
+        return results
+
+    def _fetch_global_future_history(self, symbol: str, chart_code: str) -> tuple[str, list[float]]:
+        try:
+            frame = ak.futures_global_hist_em(symbol=chart_code)
+            if frame.empty:
+                return symbol, []
+            points = build_sparkline(frame["最新价"].tolist(), limit=7)
+            return symbol, points
+        except Exception as e:
+            print(f"[AKShare] fetch_global_future_history error for {chart_code}: {e}")
+            return symbol, []

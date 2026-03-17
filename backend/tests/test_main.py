@@ -131,6 +131,62 @@ async def test_overview_endpoint_populates_data_on_cache_miss(monkeypatch):
     await close_cache()
 
 
+async def test_overview_endpoint_blocks_for_missing_sectors(monkeypatch):
+    import app.scheduler as scheduler
+
+    await close_cache()
+    await init_cache()
+    await cache_set(
+        "commodities:all",
+        [
+            {
+                "symbol": "WTI",
+                "name": "原油",
+                "name_en": "Crude Oil",
+                "price": 70.1,
+                "change": 0.03,
+                "change_pct": 0.04,
+                "high": 70.1,
+                "low": 70.1,
+                "unit": "USD/bbl",
+            }
+        ],
+    )
+    await cache_set(
+        "indices:groups",
+        {
+            "us": [{"symbol": "DJI", "name": "道琼斯", "value": 42345.0, "change": 125.0, "change_pct": 0.29, "sparkline": [42010.0, 42100.0, 42345.0]}],
+            "jp": [],
+            "kr": [],
+            "hk": [],
+            "cn": [],
+        },
+    )
+
+    calls: list[set[str] | None] = []
+
+    async def fake_ensure_market_data(*, include: set[str] | None = None):
+        calls.append(include)
+        if include == {"sectors"}:
+            await cache_set(
+                "sectors:cn",
+                [{"name": "半导体", "change_pct": 3.25, "turnover": 12500000000, "leading_stock": "中芯国际"}],
+            )
+
+    monkeypatch.setattr(scheduler, "ensure_market_data", fake_ensure_market_data, raising=False)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/api/v1/overview")
+
+    body = response.json()
+    assert response.status_code == 200
+    assert body["sectors"][0]["name"] == "半导体"
+    assert calls == [{"sectors"}]
+
+    await close_cache()
+
+
 async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order():
     await close_cache()
     await init_cache()

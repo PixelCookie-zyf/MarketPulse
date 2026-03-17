@@ -29,7 +29,12 @@ async def get_overview() -> dict:
         commodities = await scheduler.load_combined_commodities()
         groups = await cache_get("indices:groups")
         sectors = await cache_get("sectors:cn")
-    elif not commodities or not has_indices or not sectors:
+    else:
+        if not sectors:
+            await scheduler.ensure_market_data(include={"sectors"})
+            sectors = await cache_get("sectors:cn")
+
+    if not commodities or not has_indices or not sectors:
         # Some data exists — return it immediately and refresh missing parts in background.
         missing: set[str] = set()
         if not commodities:
@@ -38,7 +43,8 @@ async def get_overview() -> dict:
             missing.add("indices")
         if not sectors:
             missing.add("sectors")
-        asyncio.create_task(scheduler.ensure_market_data(include=missing))
+        if missing:
+            asyncio.create_task(scheduler.ensure_market_data(include=missing))
 
     if groups is None:
         groups = _empty_groups()

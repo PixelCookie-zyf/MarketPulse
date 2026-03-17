@@ -1,8 +1,11 @@
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const DEFAULT_UA = "Mozilla/5.0 (MarketPulse; Cloudflare Worker)";
-const INDEX_SPOT_FS = "i:100.HSI,i:100.N225,i:100.KS11";
+const INDEX_SPOT_FS = "i:100.HSI,i:100.N225,i:100.KS11,i:100.DJIA,i:100.SPX,i:100.NDX";
 
 const INDEX_KLINE_SECIDS = {
+  DJI: "100.DJIA",
+  SPX: "100.SPX",
+  IXIC: "100.NDX",
   HSI: "100.HSI",
   N225: "100.N225",
   KOSPI: "100.KS11",

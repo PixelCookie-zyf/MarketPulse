@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -7,9 +8,10 @@ def to_float(value: Any, default: float = 0.0) -> float:
     if value in (None, "", "-"):
         return default
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return default
+    return number if math.isfinite(number) else default
 
 
 def default_index_groups() -> dict[str, list]:
