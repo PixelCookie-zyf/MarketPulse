@@ -142,54 +142,92 @@ class AKShareFetcher:
             return []
 
     async def fetch_index_intraday(self, symbol: str) -> list[dict]:
-        """Fetch recent daily data as intraday proxy for A-share index.
-        Uses stock_zh_index_daily (Sina source) which is reliable from China.
-        For 1d view, returns the last trading day's OHLC as a single-point chart.
-        Falls back to daily history as a line chart.
+        """Fetch 1-minute intraday data for A-share index from Sina.
+        stock_zh_a_minute supports ~9 trading days of minute data.
         """
         try:
-            frame = await asyncio.to_thread(ak.stock_zh_index_daily, symbol=symbol)
+            frame = await asyncio.to_thread(
+                ak.stock_zh_a_minute, symbol=symbol, period="1"
+            )
             if frame.empty:
                 return []
-            # Get last trading day's data — use last 1 row for "today"
-            last_row = frame.iloc[-1]
-            date_str = str(last_row.get("date", ""))
-            # For intraday simulation, create points from open→high→low→close
-            o = to_float(last_row.get("open"))
-            h = to_float(last_row.get("high"))
-            l = to_float(last_row.get("low"))
-            c = to_float(last_row.get("close"))
-            vol = to_float(last_row.get("volume", 0))
-            items = [
-                {"time": f"{date_str} 09:30", "price": round(o, 4), "volume": vol / 4},
-                {"time": f"{date_str} 10:30", "price": round(h, 4), "volume": vol / 4},
-                {"time": f"{date_str} 13:30", "price": round(l, 4), "volume": vol / 4},
-                {"time": f"{date_str} 15:00", "price": round(c, 4), "volume": vol / 4},
-            ]
+            # Get only the last trading day
+            frame["day"] = frame["day"].astype(str)
+            last_date = frame["day"].iloc[-1][:10]
+            today_data = frame[frame["day"].str.startswith(last_date)]
+            items = []
+            for _, row in today_data.iterrows():
+                items.append({
+                    "time": str(row.get("day", ""))[11:16],  # HH:MM
+                    "price": round(to_float(row.get("close", 0)), 4),
+                    "volume": to_float(row.get("volume", 0)),
+                })
             return items
         except Exception as e:
             print(f"[AKShare] fetch_index_intraday error for {symbol}: {e}")
             return []
 
     async def fetch_commodity_intraday(self, symbol: str) -> list[dict]:
-        """Fetch commodity intraday data. Returns empty if not supported."""
-        # Commodity intraday not reliably available from China servers.
-        # Return empty — the chart will show "暂无分时数据".
-        return []
-
-    async def fetch_index_daily_history(self, symbol: str, days: int = 5) -> list[dict]:
-        """Fetch recent daily close prices for 5-day chart.
-        Uses stock_zh_index_daily (Sina source) — always works from China.
-        """
+        """Fetch commodity intraday data via futures_zh_minute_sina."""
+        SYMBOL_TO_SINA = {
+            "XAU": "AU0", "XAG": "AG0", "WTI": "SC0", "COPPER": "CU0",
+        }
+        sina_code = SYMBOL_TO_SINA.get(symbol)
+        if not sina_code:
+            return []
         try:
-            frame = await asyncio.to_thread(ak.stock_zh_index_daily, symbol=symbol)
+            frame = await asyncio.to_thread(
+                ak.futures_zh_minute_sina, symbol=sina_code, period="1"
+            )
             if frame.empty:
                 return []
-            recent = frame.tail(days)
+            frame["datetime"] = frame["datetime"].astype(str)
+            last_date = frame["datetime"].iloc[-1][:10]
+            today_data = frame[frame["datetime"].str.startswith(last_date)]
             items = []
-            for _, row in recent.iterrows():
+            for _, row in today_data.iterrows():
                 items.append({
-                    "time": str(row.get("date", "")),
+                    "time": str(row.get("datetime", ""))[11:16],
+                    "price": round(to_float(row.get("close", 0)), 4),
+                    "volume": to_float(row.get("volume", 0)),
+                })
+            return items
+        except Exception as e:
+            print(f"[AKShare] fetch_commodity_intraday error for {symbol}: {e}")
+            return []
+
+    async def fetch_index_daily_history(self, symbol: str, days: int = 5) -> list[dict]:
+        """Fetch 5-day chart using 15-min bars from Sina.
+        stock_zh_a_minute with period=15 gives ~9 days of 15-min data.
+        """
+        try:
+            frame = await asyncio.to_thread(
+                ak.stock_zh_a_minute, symbol=symbol, period="15"
+            )
+            if frame.empty:
+                # Fallback to daily
+                frame = await asyncio.to_thread(ak.stock_zh_index_daily, symbol=symbol)
+                if frame.empty:
+                    return []
+                recent = frame.tail(days)
+                return [
+                    {
+                        "time": str(row.get("date", "")),
+                        "price": round(to_float(row.get("close", 0)), 4),
+                        "volume": to_float(row.get("volume", 0)),
+                    }
+                    for _, row in recent.iterrows()
+                ]
+            # Get last N days of 15-min bars
+            frame["day"] = frame["day"].astype(str)
+            dates = frame["day"].str[:10].unique()
+            recent_dates = dates[-days:] if len(dates) >= days else dates
+            mask = frame["day"].str[:10].isin(recent_dates)
+            recent_data = frame[mask]
+            items = []
+            for _, row in recent_data.iterrows():
+                items.append({
+                    "time": str(row.get("day", "")),
                     "price": round(to_float(row.get("close", 0)), 4),
                     "volume": to_float(row.get("volume", 0)),
                 })
