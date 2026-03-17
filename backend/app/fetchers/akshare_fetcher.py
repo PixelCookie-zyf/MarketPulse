@@ -10,6 +10,25 @@ from app.fetchers.base import build_sparkline, to_float
 
 CN_INDEX_CODES = ("sh000001", "sh000300", "sz399001", "sz399006", "sh000688")
 
+# 东方财富全球期货代码 → 我们的标准 symbol 映射
+EM_COMMODITY_MAP = {
+    "COMEX黄金": {"symbol": "XAU", "name": "黄金", "name_en": "Gold", "unit": "USD/oz"},
+    "COMEX白银": {"symbol": "XAG", "name": "白银", "name_en": "Silver", "unit": "USD/oz"},
+    "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USc/lb"},
+    "NYMEX原油": {"symbol": "WTI", "name": "原油", "name_en": "Crude Oil", "unit": "USD/bbl"},
+    "布伦特原油": {"symbol": "BRENT", "name": "布伦特原油", "name_en": "Brent Oil", "unit": "USD/bbl"},
+    "NYMEX天然气": {"symbol": "NATGAS", "name": "天然气", "name_en": "Natural Gas", "unit": "USD/MMBtu"},
+    "LME铜": {"symbol": "COPPER_LME", "name": "LME铜", "name_en": "LME Copper", "unit": "USD/t"},
+    "CBOT玉米": {"symbol": "CORN", "name": "玉米", "name_en": "Corn", "unit": "USc/bu"},
+    "CBOT小麦": {"symbol": "WHEAT", "name": "小麦", "name_en": "Wheat", "unit": "USc/bu"},
+    "NYBOT棉花": {"symbol": "COTTON", "name": "棉花", "name_en": "Cotton", "unit": "USc/lb"},
+    "纽约原糖": {"symbol": "SUGAR", "name": "糖", "name_en": "Sugar", "unit": "USc/lb"},
+    "NYBOT-Loss咖啡": {"symbol": "COFFEE", "name": "咖啡", "name_en": "Coffee", "unit": "USc/lb"},
+}
+
+# 优先展示的商品（按顺序）
+COMMODITY_PRIORITY = ["XAU", "XAG", "WTI", "BRENT", "NATGAS", "COPPER", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE"]
+
 
 def normalize_index_row(row: dict) -> dict:
     return {
@@ -84,6 +103,46 @@ class AKShareFetcher:
             if isinstance(history, list) and history:
                 results[code] = history
         return results
+
+    async def fetch_global_commodities(self) -> list[dict]:
+        """Fetch global commodity futures from Eastmoney via AKShare."""
+        try:
+            frame = await asyncio.to_thread(ak.futures_global_spot_em)
+            items = []
+            seen_symbols = set()
+            for _, row in frame.iterrows():
+                name = str(row.get("名称", ""))
+                spec = None
+                for key, val in EM_COMMODITY_MAP.items():
+                    if key in name or name in key:
+                        spec = val
+                        break
+                if spec is None or spec["symbol"] in seen_symbols:
+                    continue
+                seen_symbols.add(spec["symbol"])
+                price = to_float(row.get("最新价"))
+                prev = to_float(row.get("昨结"), default=price)
+                change = price - prev
+                change_pct = (change / prev * 100) if prev else 0.0
+                items.append({
+                    "symbol": spec["symbol"],
+                    "name": spec["name"],
+                    "name_en": spec["name_en"],
+                    "price": round(price, 4),
+                    "change": round(change, 4),
+                    "change_pct": round(change_pct, 2),
+                    "high": round(to_float(row.get("最高"), default=price), 4),
+                    "low": round(to_float(row.get("最低"), default=price), 4),
+                    "unit": spec["unit"],
+                })
+            # Sort by priority
+            order = {s: i for i, s in enumerate(COMMODITY_PRIORITY)}
+            items.sort(key=lambda x: order.get(x["symbol"], 999))
+            await cache_set("commodities:em", items, ttl=settings.cache_ttl_commodity)
+            return items
+        except Exception as e:
+            print(f"[AKShare] fetch_global_commodities error: {e}")
+            return []
 
     def _fetch_cn_history(self, symbol: str) -> list[float]:
         try:

@@ -42,7 +42,7 @@ def build_job_specs() -> list[dict]:
         {"id": "cn_sectors", "minutes": 3, "func": refresh_cn_sectors},
         {"id": "gold_metals", "minutes": 15, "func": refresh_gold_metals},
         {"id": "global_indices", "hours": 1, "func": refresh_global_indices},
-        {"id": "stooq_commodities", "hours": 1, "func": refresh_stooq_commodities},
+        {"id": "em_commodities", "minutes": 5, "func": refresh_em_commodities},
     ]
 
 
@@ -84,9 +84,10 @@ async def refresh_global_indices() -> dict[str, list]:
     return groups
 
 
-async def refresh_stooq_commodities() -> list[dict]:
-    fetcher = StooqFetcher()
-    commodities = await fetcher.fetch_commodities()
+async def refresh_em_commodities() -> list[dict]:
+    """Fetch commodities from Eastmoney (via AKShare) — works from China."""
+    akshare = AKShareFetcher()
+    commodities = await akshare.fetch_global_commodities()
     await _refresh_combined_commodities(stooq=commodities)
     return commodities
 
@@ -100,7 +101,7 @@ async def ensure_market_data(*, include: set[str] | None = None) -> None:
         if "commodities" in requested:
             commodities = await cache_get("commodities:all")
             if not commodities:
-                jobs.extend((refresh_gold_metals(), refresh_stooq_commodities()))
+                jobs.extend((refresh_gold_metals(), refresh_em_commodities()))
 
         if "indices" in requested:
             groups = await cache_get("indices:groups")
@@ -134,7 +135,7 @@ def start_scheduler() -> None:
     loop.create_task(refresh_cn_sectors())
     loop.create_task(refresh_gold_metals())
     loop.create_task(refresh_global_indices())
-    loop.create_task(refresh_stooq_commodities())
+    loop.create_task(refresh_em_commodities())
 
 
 def stop_scheduler() -> None:
