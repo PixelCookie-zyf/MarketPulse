@@ -8,6 +8,8 @@ services:
       - CACHE_BACKEND=redis
       - GOLDAPI_KEY=${GOLDAPI_KEY}
       - ALPHAVANTAGE_KEY=${ALPHAVANTAGE_KEY}
+      - EASTMONEY_PROXY_BASE_URL=${EASTMONEY_PROXY_BASE_URL}
+      - EASTMONEY_PROXY_TOKEN=${EASTMONEY_PROXY_TOKEN}
     depends_on:
       redis:
         condition: service_healthy
