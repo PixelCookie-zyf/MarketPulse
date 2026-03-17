@@ -71,9 +71,11 @@ async def refresh_gold_metals() -> list[dict]:
 
 async def refresh_global_indices() -> dict[str, list]:
     stooq = StooqFetcher()
-    alpha = AlphaVantageFetcher()
-    us, jpkr = await asyncio.gather(stooq.fetch_us_indices(), alpha.fetch_jpkr_indices())
-    jp, kr = jpkr
+    us, jp, kr = await asyncio.gather(
+        stooq.fetch_us_indices(),
+        stooq.fetch_jp_indices(),
+        stooq.fetch_kr_indices(),
+    )
     groups = await _load_index_groups()
     groups["us"] = us
     groups["jp"] = jp

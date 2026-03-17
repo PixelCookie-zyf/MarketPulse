@@ -42,6 +42,14 @@ STQ_HK_INDEX_SPECS = (
     StooqIndexSpec(symbol="^hsi", market_symbol="HSI", name="恒生指数"),
 )
 
+STQ_JP_INDEX_SPECS = (
+    StooqIndexSpec(symbol="^nkx", market_symbol="N225", name="日经225"),
+)
+
+STQ_KR_INDEX_SPECS = (
+    StooqIndexSpec(symbol="^kospi", market_symbol="KOSPI", name="韩国KOSPI"),
+)
+
 STQ_COMMODITY_SPECS = (
     StooqCommoditySpec(symbol="cl.f", market_symbol="WTI", name="原油", name_en="Crude Oil", unit="USD/bbl"),
     StooqCommoditySpec(symbol="cb.f", market_symbol="BRENT", name="布伦特原油", name_en="Brent Oil", unit="USD/bbl"),
@@ -136,6 +144,24 @@ class StooqFetcher:
 
         items = [item for item in results if isinstance(item, dict)]
         await cache_set("indices:hk", items, ttl=settings.cache_ttl_index)
+        return items
+
+    async def fetch_jp_indices(self) -> list[dict]:
+        async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
+            tasks = [self._fetch_index_item(client, spec) for spec in STQ_JP_INDEX_SPECS]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        items = [item for item in results if isinstance(item, dict)]
+        await cache_set("indices:jp", items, ttl=settings.cache_ttl_index)
+        return items
+
+    async def fetch_kr_indices(self) -> list[dict]:
+        async with httpx.AsyncClient(timeout=self.timeout, headers={"User-Agent": USER_AGENT}) as client:
+            tasks = [self._fetch_index_item(client, spec) for spec in STQ_KR_INDEX_SPECS]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        items = [item for item in results if isinstance(item, dict)]
+        await cache_set("indices:kr", items, ttl=settings.cache_ttl_index)
         return items
 
     async def fetch_commodities(self) -> list[dict]:

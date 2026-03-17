@@ -54,12 +54,7 @@ actor APIService: MarketDataServicing {
 }
 
 private extension APIService {
-    // TODO: Replace with your Alibaba Cloud server IP or domain
     static var defaultBaseURL: URL {
-        #if DEBUG
-        return URL(string: "http://YOUR_SERVER_IP:8000/api/v1")!
-        #else
-        return URL(string: "http://YOUR_SERVER_IP:8000/api/v1")!
-        #endif
+        return URL(string: "http://47.102.109.227:8000/api/v1")!
     }
 }
