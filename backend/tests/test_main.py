@@ -200,7 +200,7 @@ async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order()
     await cache_set(
         "commodities:em",
         [
-            {"symbol": "COFFEE", "name": "咖啡"},
+            {"symbol": "COPPER", "name": "铜"},
             {"symbol": "BRENT", "name": "布伦特原油"},
         ],
     )
@@ -211,7 +211,7 @@ async def test_commodities_endpoint_rebuilds_combined_cache_in_dashboard_order()
 
     body = response.json()
     assert response.status_code == 200
-    assert [item["symbol"] for item in body["data"]] == ["XAU", "XAG", "BRENT", "COFFEE"]
+    assert [item["symbol"] for item in body["data"]] == ["XAU", "XAG", "BRENT", "COPPER"]
 
     await close_cache()
 
@@ -226,7 +226,7 @@ async def test_chart_endpoint_routes_global_indices_to_dedicated_fetcher(monkeyp
         called["global"] += 1
         return [{"time": "2026-03-17 09:30", "price": 24706.4, "volume": 0.0}]
 
-    async def fake_fetch_commodity_intraday(self, symbol: str):
+    async def fake_fetch_commodity_chart(self, symbol: str, period: str):
         called["commodity"] += 1
         return [{"time": "00:00", "price": 0.0, "volume": 0.0}]
 
@@ -236,8 +236,8 @@ async def test_chart_endpoint_routes_global_indices_to_dedicated_fetcher(monkeyp
         raising=False,
     )
     monkeypatch.setattr(
-        "app.fetchers.akshare_fetcher.AKShareFetcher.fetch_commodity_intraday",
-        fake_fetch_commodity_intraday,
+        "app.fetchers.eastmoney_proxy_fetcher.EastmoneyProxyFetcher.fetch_commodity_chart",
+        fake_fetch_commodity_chart,
         raising=False,
     )
 

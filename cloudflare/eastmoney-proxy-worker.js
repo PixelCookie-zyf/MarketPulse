@@ -21,13 +21,8 @@ const FUTURE_KLINE_SECIDS = {
 const COMMODITY_KLINE_SECIDS = {
   XAU: "101.GC00Y",      // COMEX Gold
   XAG: "101.SI00Y",      // COMEX Silver
-  COPPER: "101.HG00Y",   // COMEX Copper
   BRENT: "112.B00Y",     // ICE Brent
-  NATGAS: "102.NG00Y",   // NYMEX Natural Gas
-  CORN: "103.ZC00Y",     // CBOT Corn
-  WHEAT: "103.ZW00Y",    // CBOT Wheat
-  COTTON: "108.CT00Y",   // ICE Cotton
-  SUGAR: "108.SB00Y",    // ICE Sugar
+  COPPER: "101.HG00Y",   // COMEX Copper
 };
 
 const COMMODITY_SPOT_URL = "https://futsseapi.eastmoney.com/list/COMEX,NYMEX,COBOT,SGX,NYBOT,LME,MDEX,TOCOM,IPE";

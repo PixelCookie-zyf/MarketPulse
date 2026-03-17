@@ -24,13 +24,7 @@ COMBINED_COMMODITY_SYMBOLS = (
     "XAU",
     "XAG",
     "BRENT",
-    "NATGAS",
     "COPPER",
-    "CORN",
-    "WHEAT",
-    "COTTON",
-    "SUGAR",
-    "COFFEE",
 )
 STABLE_COMMODITY_CACHE_KEY = "commodities:em"
 

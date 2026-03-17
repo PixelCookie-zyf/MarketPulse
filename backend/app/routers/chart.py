@@ -4,7 +4,7 @@ from fastapi import APIRouter, Query
 
 from app.cache import cache_get, cache_set
 from app.fetchers.akshare_fetcher import AKShareFetcher
-from app.fetchers.eastmoney_proxy_fetcher import is_global_index_symbol
+from app.fetchers.eastmoney_proxy_fetcher import EastmoneyProxyFetcher, is_commodity_symbol, is_global_index_symbol
 
 router = APIRouter(prefix="/api/v1", tags=["chart"])
 
@@ -30,12 +30,10 @@ async def get_intraday(
             data = await fetcher.fetch_index_intraday(symbol)
     elif is_global_index_symbol(symbol):
         data = await fetcher.fetch_global_index_chart(symbol, period)
-    else:
-        # Commodity or global index futures — all use Sina futures
-        if period == "5d":
-            data = await fetcher.fetch_commodity_5d(symbol)
-        else:
-            data = await fetcher.fetch_commodity_intraday(symbol)
+    elif is_commodity_symbol(symbol):
+        # Commodity chart via Cloudflare proxy (USD-denominated kline)
+        proxy = EastmoneyProxyFetcher()
+        data = await proxy.fetch_commodity_chart(symbol, period)
 
     ttl = 300 if period == "1d" else 1800
     if data:

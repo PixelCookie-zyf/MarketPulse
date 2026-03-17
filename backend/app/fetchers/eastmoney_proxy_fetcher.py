@@ -42,6 +42,10 @@ def is_global_index_symbol(symbol: str) -> bool:
     return symbol in GLOBAL_INDEX_SYMBOLS
 
 
+def is_commodity_symbol(symbol: str) -> bool:
+    return symbol in PROXY_COMMODITY_SYMBOLS
+
+
 def extract_proxy_global_index_item(
     row: dict,
     spec: ProxyIndexSpec,
@@ -88,16 +92,12 @@ def extract_proxy_chart_items(payload: dict) -> list[dict]:
 PROXY_COMMODITY_MAP = {
     "COMEX黄金": {"symbol": "XAU", "name": "黄金", "name_en": "Gold", "unit": "USD/oz"},
     "COMEX白银": {"symbol": "XAG", "name": "白银", "name_en": "Silver", "unit": "USD/oz"},
-    "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USD/lb"},
     "布伦特原油": {"symbol": "BRENT", "name": "布伦特原油", "name_en": "Brent Oil", "unit": "USD/bbl"},
-    "天然气": {"symbol": "NATGAS", "name": "天然气", "name_en": "Natural Gas", "unit": "USD/MMBtu"},
-    "玉米当月连续": {"symbol": "CORN", "name": "玉米", "name_en": "Corn", "unit": "USc/bu"},
-    "小麦当月连续": {"symbol": "WHEAT", "name": "小麦", "name_en": "Wheat", "unit": "USc/bu"},
-    "棉花当月连续": {"symbol": "COTTON", "name": "棉花", "name_en": "Cotton", "unit": "USc/lb"},
-    "糖11号当月连续": {"symbol": "SUGAR", "name": "糖", "name_en": "Sugar", "unit": "USc/lb"},
+    "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USD/lb"},
 }
 
-PROXY_COMMODITY_PRIORITY = ["XAU", "XAG", "BRENT", "NATGAS", "COPPER", "CORN", "WHEAT", "COTTON", "SUGAR"]
+PROXY_COMMODITY_PRIORITY = ["XAU", "XAG", "BRENT", "COPPER"]
+PROXY_COMMODITY_SYMBOLS = frozenset(spec["symbol"] for spec in PROXY_COMMODITY_MAP.values())
 
 
 def _match_proxy_commodity_spec(name: str) -> dict | None:
@@ -181,6 +181,14 @@ class EastmoneyProxyFetcher:
             return []
 
         payload = await self._get_json("/global-indices/kline", params={"symbol": symbol, "period": period})
+        return extract_proxy_chart_items(payload)
+
+    async def fetch_commodity_chart(self, symbol: str, period: str) -> list[dict]:
+        """Fetch commodity kline via Cloudflare proxy (USD-denominated)."""
+        if not self.enabled or symbol not in PROXY_COMMODITY_SYMBOLS:
+            return []
+
+        payload = await self._get_json("/global-commodities/kline", params={"symbol": symbol, "period": period})
         return extract_proxy_chart_items(payload)
 
     async def fetch_global_index_sparkline_map(self, symbols: list[str]) -> dict[str, list[float]]:

@@ -181,15 +181,12 @@ async def test_fetch_global_commodities_ignores_non_finite_contract_rows(monkeyp
         ]
     )
 
-    async def fake_domestic(self):
-        return []
-
     async def fake_cache_set(*args, **kwargs):
         return None
 
     monkeypatch.setattr("app.fetchers.akshare_fetcher.ak.futures_global_spot_em", lambda: frame)
-    monkeypatch.setattr("app.fetchers.akshare_fetcher.AKShareFetcher._fetch_sina_domestic_commodities", fake_domestic)
     monkeypatch.setattr("app.fetchers.akshare_fetcher.cache_set", fake_cache_set)
+    monkeypatch.setattr("app.fetchers.eastmoney_proxy_fetcher.settings", type("S", (), {"eastmoney_proxy_base_url": "", "eastmoney_proxy_token": ""})())
 
     items = await AKShareFetcher().fetch_global_commodities()
 
@@ -307,13 +304,7 @@ def test_stooq_specs_cover_expanded_dashboard_symbols():
         "XAU",
         "XAG",
         "BRENT",
-        "NATGAS",
         "COPPER",
-        "CORN",
-        "WHEAT",
-        "COTTON",
-        "SUGAR",
-        "COFFEE",
     }
 
 
@@ -361,9 +352,8 @@ async def test_refresh_combined_commodities_keeps_dashboard_order(monkeypatch):
             {"symbol": "XAU", "name": "黄金"},
         ],
         stooq=[
-            {"symbol": "SUGAR", "name": "糖"},
             {"symbol": "BRENT", "name": "布伦特原油"},
-            {"symbol": "COFFEE", "name": "咖啡"},
+            {"symbol": "COPPER", "name": "铜"},
         ],
     )
 
@@ -371,6 +361,5 @@ async def test_refresh_combined_commodities_keeps_dashboard_order(monkeypatch):
         "XAU",
         "XAG",
         "BRENT",
-        "SUGAR",
-        "COFFEE",
+        "COPPER",
     ]
