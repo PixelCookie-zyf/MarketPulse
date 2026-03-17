@@ -34,17 +34,17 @@ struct CommodityCardView: View {
                             .foregroundStyle(AppTheme.Colors.secondaryText)
                     }
 
-                    Text(item.price, format: .number.precision(.fractionLength(2)))
+                    Text(item.safePrice, format: .number.precision(.fractionLength(2)))
                         .font(.title.weight(.heavy))
                         .foregroundStyle(AppTheme.Colors.primaryText)
                         .contentTransition(.numericText())
 
-                    ChangeLabel(change: item.change, changePct: item.changePct)
+                    ChangeLabel(change: item.safeChange, changePct: item.safeChangePct)
 
                     HStack {
-                        stat("高", value: item.high)
+                        stat("高", value: item.safeHigh)
                         Spacer()
-                        stat("低", value: item.low)
+                        stat("低", value: item.safeLow)
                     }
                 }
                 .padding(AppTheme.Spacing.lg)
@@ -87,9 +87,9 @@ struct CommodityCardView: View {
             ChartDetailView(
                 symbol: item.symbol,
                 name: item.name,
-                currentPrice: item.price,
-                change: item.change,
-                changePct: item.changePct
+                currentPrice: item.safePrice,
+                change: item.safeChange,
+                changePct: item.safeChangePct
             )
         }
     }

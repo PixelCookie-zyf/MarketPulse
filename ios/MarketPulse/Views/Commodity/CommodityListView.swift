@@ -44,19 +44,19 @@ private struct CommodityListRow: View {
                     Spacer()
 
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(item.price, format: .number.precision(.fractionLength(2)))
+                        Text(item.safePrice, format: .number.precision(.fractionLength(2)))
                             .font(.title2.weight(.bold))
                             .foregroundStyle(AppTheme.Colors.primaryText)
-                        ChangeLabel(change: item.change, changePct: item.changePct)
+                        ChangeLabel(change: item.safeChange, changePct: item.safeChangePct)
                     }
                 }
 
                 Divider()
 
                 HStack {
-                    detailMetric(title: "最高", value: item.high)
+                    detailMetric(title: "最高", value: item.safeHigh)
                     Spacer()
-                    detailMetric(title: "最低", value: item.low)
+                    detailMetric(title: "最低", value: item.safeLow)
                     Spacer()
                     VStack(alignment: .leading, spacing: 4) {
                         Text("单位")
@@ -75,9 +75,9 @@ private struct CommodityListRow: View {
             ChartDetailView(
                 symbol: item.symbol,
                 name: item.name,
-                currentPrice: item.price,
-                change: item.change,
-                changePct: item.changePct
+                currentPrice: item.safePrice,
+                change: item.safeChange,
+                changePct: item.safeChangePct
             )
         }
     }

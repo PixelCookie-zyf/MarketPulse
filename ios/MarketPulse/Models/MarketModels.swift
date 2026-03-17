@@ -75,11 +75,11 @@ struct CommodityItem: Codable, Equatable, Identifiable {
     let symbol: String
     let name: String
     let nameEn: String
-    let price: Double
-    let change: Double
-    let changePct: Double
-    let high: Double
-    let low: Double
+    let price: Double?
+    let change: Double?
+    let changePct: Double?
+    let high: Double?
+    let low: Double?
     let unit: String
 
     enum CodingKeys: String, CodingKey {
@@ -88,7 +88,12 @@ struct CommodityItem: Codable, Equatable, Identifiable {
         case changePct = "change_pct"
     }
 
-    var isUp: Bool { change >= 0 }
+    var isUp: Bool { (change ?? 0) >= 0 }
+    var safePrice: Double { price ?? 0 }
+    var safeChange: Double { change ?? 0 }
+    var safeChangePct: Double { changePct ?? 0 }
+    var safeHigh: Double { high ?? safePrice }
+    var safeLow: Double { low ?? safePrice }
 }
 
 struct IndexItem: Codable, Equatable, Identifiable {

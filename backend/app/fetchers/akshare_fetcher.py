@@ -10,20 +10,18 @@ from app.fetchers.base import build_sparkline, to_float
 
 CN_INDEX_CODES = ("sh000001", "sh000300", "sz399001", "sz399006", "sh000688")
 
-# 东方财富全球期货代码 → 我们的标准 symbol 映射
+# 东方财富全球期货 — 精确匹配名称（不带月份后缀的主力合约行）
 EM_COMMODITY_MAP = {
     "COMEX黄金": {"symbol": "XAU", "name": "黄金", "name_en": "Gold", "unit": "USD/oz"},
     "COMEX白银": {"symbol": "XAG", "name": "白银", "name_en": "Silver", "unit": "USD/oz"},
-    "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USc/lb"},
+    "COMEX铜": {"symbol": "COPPER", "name": "铜", "name_en": "Copper", "unit": "USD/lb"},
     "NYMEX原油": {"symbol": "WTI", "name": "原油", "name_en": "Crude Oil", "unit": "USD/bbl"},
     "布伦特原油": {"symbol": "BRENT", "name": "布伦特原油", "name_en": "Brent Oil", "unit": "USD/bbl"},
-    "NYMEX天然气": {"symbol": "NATGAS", "name": "天然气", "name_en": "Natural Gas", "unit": "USD/MMBtu"},
-    "LME铜": {"symbol": "COPPER_LME", "name": "LME铜", "name_en": "LME Copper", "unit": "USD/t"},
-    "CBOT玉米": {"symbol": "CORN", "name": "玉米", "name_en": "Corn", "unit": "USc/bu"},
-    "CBOT小麦": {"symbol": "WHEAT", "name": "小麦", "name_en": "Wheat", "unit": "USc/bu"},
-    "NYBOT棉花": {"symbol": "COTTON", "name": "棉花", "name_en": "Cotton", "unit": "USc/lb"},
-    "纽约原糖": {"symbol": "SUGAR", "name": "糖", "name_en": "Sugar", "unit": "USc/lb"},
-    "NYBOT-Loss咖啡": {"symbol": "COFFEE", "name": "咖啡", "name_en": "Coffee", "unit": "USc/lb"},
+    "天然气": {"symbol": "NATGAS", "name": "天然气", "name_en": "Natural Gas", "unit": "USD/MMBtu"},
+    "玉米当月连续": {"symbol": "CORN", "name": "玉米", "name_en": "Corn", "unit": "USc/bu"},
+    "小麦当月连续": {"symbol": "WHEAT", "name": "小麦", "name_en": "Wheat", "unit": "USc/bu"},
+    "棉花当月连续": {"symbol": "COTTON", "name": "棉花", "name_en": "Cotton", "unit": "USc/lb"},
+    "糖11号当月连续": {"symbol": "SUGAR", "name": "糖", "name_en": "Sugar", "unit": "USc/lb"},
 }
 
 # 优先展示的商品（按顺序）
@@ -111,16 +109,15 @@ class AKShareFetcher:
             items = []
             seen_symbols = set()
             for _, row in frame.iterrows():
-                name = str(row.get("名称", ""))
-                spec = None
-                for key, val in EM_COMMODITY_MAP.items():
-                    if key in name or name in key:
-                        spec = val
-                        break
+                name = str(row.get("名称", "")).strip()
+                # Exact match on the map keys (these are the main contract rows)
+                spec = EM_COMMODITY_MAP.get(name)
                 if spec is None or spec["symbol"] in seen_symbols:
                     continue
-                seen_symbols.add(spec["symbol"])
                 price = to_float(row.get("最新价"))
+                if not price or price == 0:
+                    continue
+                seen_symbols.add(spec["symbol"])
                 prev = to_float(row.get("昨结"), default=price)
                 change = price - prev
                 change_pct = (change / prev * 100) if prev else 0.0
