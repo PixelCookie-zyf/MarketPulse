@@ -41,7 +41,7 @@ def build_job_specs() -> list[dict]:
         {"id": "cn_indices", "minutes": 1, "func": refresh_cn_indices},
         {"id": "cn_sectors", "minutes": 3, "func": refresh_cn_sectors},
         {"id": "gold_metals", "minutes": 15, "func": refresh_gold_metals},
-        {"id": "global_indices", "hours": 1, "func": refresh_global_indices},
+        {"id": "global_indices", "minutes": 5, "func": refresh_global_indices},
         {"id": "em_commodities", "minutes": 5, "func": refresh_em_commodities},
     ]
 
@@ -68,18 +68,20 @@ async def refresh_gold_metals() -> list[dict]:
 
 
 async def refresh_global_indices() -> dict[str, list]:
-    akshare = AKShareFetcher()
-    result = await akshare.fetch_global_indices()
-    groups = await _load_index_groups()
-    groups["us"] = result.get("us", [])
-    groups["jp"] = result.get("jp", [])
-    groups["kr"] = result.get("kr", [])
-    # Also update HK from global if available
-    hk_from_global = result.get("hk", [])
-    if hk_from_global:
-        groups["hk"] = hk_from_global
-    await cache_set("indices:groups", groups, ttl=_INDEX_GROUP_TTL)
-    return groups
+    try:
+        akshare = AKShareFetcher()
+        result = await akshare.fetch_global_indices()
+        groups = await _load_index_groups()
+        # Only overwrite if we got actual data
+        for key in ("us", "jp", "kr", "hk"):
+            items = result.get(key, [])
+            if items:
+                groups[key] = items
+        await cache_set("indices:groups", groups, ttl=_INDEX_GROUP_TTL)
+        return groups
+    except Exception as e:
+        print(f"[Scheduler] refresh_global_indices error: {e}")
+        return await _load_index_groups()
 
 
 async def refresh_em_commodities() -> list[dict]:
