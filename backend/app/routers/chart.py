@@ -27,8 +27,11 @@ async def get_intraday(
         else:
             data = await fetcher.fetch_index_intraday(symbol)
     else:
-        # Commodity or global index - use commodity intraday
-        data = await fetcher.fetch_commodity_intraday(symbol)
+        # Commodity
+        if period == "5d":
+            data = await fetcher.fetch_commodity_5d(symbol)
+        else:
+            data = await fetcher.fetch_commodity_intraday(symbol)
 
     ttl = 300 if period == "1d" else 1800  # 5 min for intraday, 30 min for 5d
     if data:

@@ -22,10 +22,11 @@ EM_COMMODITY_MAP = {
     "小麦当月连续": {"symbol": "WHEAT", "name": "小麦", "name_en": "Wheat", "unit": "USc/bu"},
     "棉花当月连续": {"symbol": "COTTON", "name": "棉花", "name_en": "Cotton", "unit": "USc/lb"},
     "糖11号当月连续": {"symbol": "SUGAR", "name": "糖", "name_en": "Sugar", "unit": "USc/lb"},
+    "生猪当月连续": {"symbol": "PORK", "name": "生猪", "name_en": "Live Hogs", "unit": "CNY/t"},
 }
 
 # 优先展示的商品（按顺序）
-COMMODITY_PRIORITY = ["XAU", "XAG", "WTI", "BRENT", "NATGAS", "COPPER", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE"]
+COMMODITY_PRIORITY = ["XAU", "XAG", "WTI", "BRENT", "NATGAS", "COPPER", "PORK", "CORN", "WHEAT", "COTTON", "SUGAR", "COFFEE"]
 
 
 def normalize_index_row(row: dict) -> dict:
@@ -102,8 +103,44 @@ class AKShareFetcher:
                 results[code] = history
         return results
 
+    # Domestic futures that need Sina minute data for pricing
+    SINA_DOMESTIC_SPECS = {
+        "LH0": {"symbol": "PORK", "name": "生猪", "name_en": "Live Hogs", "unit": "CNY/t"},
+    }
+
+    async def _fetch_sina_domestic_commodities(self) -> list[dict]:
+        """Fetch domestic commodity prices from Sina minute data."""
+        items = []
+        for sina_code, spec in self.SINA_DOMESTIC_SPECS.items():
+            try:
+                frame = await asyncio.to_thread(
+                    ak.futures_zh_minute_sina, symbol=sina_code, period="1"
+                )
+                if frame.empty:
+                    continue
+                last = frame.iloc[-1]
+                first_today = frame.iloc[0]
+                price = to_float(last.get("close", 0))
+                open_price = to_float(first_today.get("open", price))
+                change = price - open_price
+                change_pct = (change / open_price * 100) if open_price else 0
+                items.append({
+                    "symbol": spec["symbol"],
+                    "name": spec["name"],
+                    "name_en": spec["name_en"],
+                    "price": round(price, 4),
+                    "change": round(change, 4),
+                    "change_pct": round(change_pct, 2),
+                    "high": round(to_float(last.get("high", price)), 4),
+                    "low": round(to_float(last.get("low", price)), 4),
+                    "unit": spec["unit"],
+                })
+            except Exception as e:
+                print(f"[AKShare] domestic commodity {sina_code} error: {e}")
+        return items
+
     async def fetch_global_commodities(self) -> list[dict]:
-        """Fetch global commodity futures from Eastmoney via AKShare."""
+        """Fetch global commodity futures from Eastmoney + domestic from Sina."""
         try:
             frame = await asyncio.to_thread(ak.futures_global_spot_em)
             items = []
@@ -132,6 +169,12 @@ class AKShareFetcher:
                     "low": round(to_float(row.get("最低"), default=price), 4),
                     "unit": spec["unit"],
                 })
+            # Add domestic commodities (pork etc.)
+            domestic = await self._fetch_sina_domestic_commodities()
+            seen_symbols = {item["symbol"] for item in items}
+            for d in domestic:
+                if d["symbol"] not in seen_symbols:
+                    items.append(d)
             # Sort by priority
             order = {s: i for i, s in enumerate(COMMODITY_PRIORITY)}
             items.sort(key=lambda x: order.get(x["symbol"], 999))
@@ -170,7 +213,13 @@ class AKShareFetcher:
     async def fetch_commodity_intraday(self, symbol: str) -> list[dict]:
         """Fetch commodity intraday data via futures_zh_minute_sina."""
         SYMBOL_TO_SINA = {
-            "XAU": "AU0", "XAG": "AG0", "WTI": "SC0", "COPPER": "CU0",
+            "XAU": "AU0",       # 沪金
+            "XAG": "AG0",       # 沪银
+            "WTI": "SC0",       # 原油（上海国际能源）
+            "COPPER": "CU0",    # 沪铜
+            "BRENT": "SC0",     # 布伦特用SC0近似
+            "NATGAS": "FU0",    # 燃料油近似天然气
+            "PORK": "LH0",      # 生猪
         }
         sina_code = SYMBOL_TO_SINA.get(symbol)
         if not sina_code:
@@ -194,6 +243,39 @@ class AKShareFetcher:
             return items
         except Exception as e:
             print(f"[AKShare] fetch_commodity_intraday error for {symbol}: {e}")
+            return []
+
+    async def fetch_commodity_5d(self, symbol: str) -> list[dict]:
+        """Fetch 5-day commodity chart using 15-min bars from Sina."""
+        SYMBOL_TO_SINA = {
+            "XAU": "AU0", "XAG": "AG0", "WTI": "SC0", "COPPER": "CU0",
+            "BRENT": "SC0", "NATGAS": "FU0", "PORK": "LH0",
+        }
+        sina_code = SYMBOL_TO_SINA.get(symbol)
+        if not sina_code:
+            return []
+        try:
+            frame = await asyncio.to_thread(
+                ak.futures_zh_minute_sina, symbol=sina_code, period="15"
+            )
+            if frame.empty:
+                return []
+            frame["datetime"] = frame["datetime"].astype(str)
+            # Get last 5 trading days
+            dates = frame["datetime"].str[:10].unique()
+            recent_dates = dates[-5:] if len(dates) >= 5 else dates
+            mask = frame["datetime"].str[:10].isin(recent_dates)
+            recent_data = frame[mask]
+            items = []
+            for _, row in recent_data.iterrows():
+                items.append({
+                    "time": str(row.get("datetime", "")),
+                    "price": round(to_float(row.get("close", 0)), 4),
+                    "volume": to_float(row.get("volume", 0)),
+                })
+            return items
+        except Exception as e:
+            print(f"[AKShare] fetch_commodity_5d error for {symbol}: {e}")
             return []
 
     async def fetch_index_daily_history(self, symbol: str, days: int = 5) -> list[dict]:
