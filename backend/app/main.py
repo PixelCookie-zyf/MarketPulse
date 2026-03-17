@@ -59,11 +59,11 @@ async def health() -> dict:
 
 @app.get("/debug/global-indices")
 async def debug_global_indices() -> dict:
-    import akshare as ak
     import traceback
+    from app.fetchers.akshare_fetcher import AKShareFetcher
     try:
-        df = ak.index_global_spot_em()
-        names = df["名称"].tolist()[:10]
-        return {"ok": True, "version": ak.__version__, "names": names, "rows": len(df)}
+        fetcher = AKShareFetcher()
+        result = await fetcher.fetch_global_indices()
+        return {"ok": True, "us": len(result["us"]), "jp": len(result["jp"]), "kr": len(result["kr"]), "hk": len(result["hk"]), "data": result}
     except Exception as e:
-        return {"ok": False, "version": getattr(ak, "__version__", "?"), "error": str(e), "trace": traceback.format_exc()}
+        return {"ok": False, "error": str(e), "trace": traceback.format_exc()}
